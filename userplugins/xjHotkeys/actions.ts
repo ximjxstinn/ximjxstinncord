@@ -169,6 +169,23 @@ const LIVE: Record<string, LiveSwitch> = {
     ShowHiddenChannels: shcLive
 };
 
+/** Einmalige Übernahme aus älteren Versionen */
+export function migrateV4() {
+    const s = store();
+    if (!s || s.migratedV4) return;
+    s.migratedV4 = true;
+    s.autoReload = false; // ältere Version hatte das standardmäßig an
+    for (const name of Object.keys(LIVE)) {
+        if (plugins[name] && !isPluginEnabled(name)) {
+            // war komplett aus → ab jetzt geladen, aber pausiert (sieht für dich weiterhin „aus“ aus)
+            Settings.plugins[name].enabled = true;
+            const map = readPaused();
+            map[name] = true;
+            writePaused(map);
+        }
+    }
+}
+
 /** Beim Start: pausierte Plugins wieder pausieren */
 export function applyPausedPlugins() {
     for (const [name, paused] of Object.entries(readPaused())) {
@@ -184,10 +201,20 @@ export function releasePausedPlugins() {
  * Gibt eine Meldung zurück, oder null, wenn der normale Weg genommen werden soll.
  */
 export function setLiveState(name: string, on: boolean): string | null {
-    if (!LIVE[name] || !isPluginEnabled(name)) return null;
+    if (!LIVE[name]) return null;
     const map = readPaused();
+    if (!isPluginEnabled(name)) {
+        // Plugin ist noch gar nicht geladen: für den nächsten Start vormerken – kein Neu-Laden
+        const st = Settings.plugins[name];
+        st.enabled = true;
+        if (on) delete map[name]; else map[name] = true;
+        writePaused(map);
+        return on ? `${name} wird beim nächsten Discord-Start aktiv (danach immer sofort)` : `${name} aus`;
+    }
     if (on) { delete map[name]; writePaused(map); LIVE[name].resume(); }
     else { map[name] = true; writePaused(map); LIVE[name].pause(); }
+    // Plugin ist eingeschaltet, aber in dieser Sitzung noch nicht geladen (z. B. direkt nach dem Update)
+    if (on && !(plugins[name] as any)?.started) return `${name} wird beim nächsten Discord-Start aktiv (danach immer sofort)`;
     return `${name} ${on ? "an" : "aus"}`;
 }
 

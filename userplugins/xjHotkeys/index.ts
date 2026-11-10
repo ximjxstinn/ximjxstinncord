@@ -9,7 +9,7 @@ import { definePluginSettings } from "@api/Settings";
 import definePlugin, { OptionType } from "@utils/types";
 
 import { setStyle } from "../_xjShared";
-import { applyPausedPlugins, applyVisibilityStyles, comboFromEvent, getActions, getBinds, hotkeyToast, recording, releasePausedPlugins } from "./actions";
+import { applyPausedPlugins, applyVisibilityStyles, comboFromEvent, getActions, getBinds, hotkeyToast, migrateV4, recording, releasePausedPlugins } from "./actions";
 
 const settings = definePluginSettings({
     binds: { type: OptionType.STRING, description: "Gespeicherte Kürzel", default: "", hidden: true },
@@ -21,7 +21,8 @@ const settings = definePluginSettings({
     migratedV3: { type: OptionType.BOOLEAN, description: "Übernahme erledigt", default: false, hidden: true },
     showToasts: { type: OptionType.BOOLEAN, description: "Kurze Meldung anzeigen, wenn ein Kürzel benutzt wird", default: true },
     autoReload: { type: OptionType.BOOLEAN, description: "Discord automatisch neu laden, wenn ein Plugin einen Neustart braucht", default: false },
-    paused: { type: OptionType.STRING, description: "Pausierte Plugins", default: "", hidden: true }
+    paused: { type: OptionType.STRING, description: "Pausierte Plugins", default: "", hidden: true },
+    migratedV4: { type: OptionType.BOOLEAN, description: "Übernahme erledigt", default: false, hidden: true }
 });
 
 function isTyping(e: KeyboardEvent) {
@@ -64,6 +65,7 @@ export default definePlugin({
     enabledByDefault: true,
     settings,
     start() {
+        migrateV4();
         applyVisibilityStyles();
         // etwas warten, bis Discord und die anderen Plugins bereit sind
         setTimeout(applyPausedPlugins, 1500);
