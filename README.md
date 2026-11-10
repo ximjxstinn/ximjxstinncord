@@ -19,6 +19,10 @@ xImJxstinnCord basiert auf [Vencord](https://github.com/Vendicated/Vencord) (© 
   | **XJStreamerBlur** | Verwischt Chats und DMs beim Streamen (Strg + Shift + B) |
   | **XJStreamClock** | Verschiebbare Uhr mit Stoppuhr |
   | **XJDesign** | xImJxstinn-Designer mit Presets, Akzentfarbe, Hintergrund, Schrift und Rundung |
+  | **XJStyle** | Modernes Design fürs Menü: leuchtende Plugin-Karten, Farbverläufe, runde Ecken (standardmäßig an) |
+  | **XJDeutsch** | Alle Plugin-Beschreibungen auf Deutsch (standardmäßig an) |
+
+Die Oberfläche der Einstellungsseiten wird beim Bauen ins Deutsche übersetzt (`branding/ui.de.json`). Die Plugin-Beschreibungen übersetzt XJDeutsch (`userplugins/xjDeutsch/plugins.de.ts`). Wenn ein Text fehlt, trag ihn einfach dort ein.
 
 ## So funktionieren Updates
 GitHub Actions (`.github/workflows/build.yml`) baut xImJxstinnCord:
