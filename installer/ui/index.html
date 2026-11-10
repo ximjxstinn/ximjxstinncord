@@ -51,7 +51,7 @@ kbd{padding:1px 6px;border-radius:5px;background:var(--panel2);border:1px solid 
 <div class="wrap">
   <header>
     <div class="logo">X</div>
-    <h1>xImJxstinnCord<small>Dein eigener Discord-Mod – ohne Vencord</small></h1>
+    <h1>xImJxstinnCord<small>Dein eigener Discord-Mod – mit allen Vencord-Plugins</small></h1>
     <div class="pill" id="status">Lade …</div>
   </header>
 
@@ -63,20 +63,20 @@ kbd{padding:1px 6px;border-radius:5px;background:var(--panel2);border:1px solid 
 
   <section class="card">
     <h2><span class="n">2</span>Das ist drin</h2>
-    <p class="sub">Alles stellst du direkt in Discord ein: <b>Benutzereinstellungen → xImJxstinnCord</b></p>
+    <p class="sub">Alles stellst du direkt in Discord ein: <b>Benutzereinstellungen → xImJxstinnCord Settings</b></p>
     <div class="feat">
-      <div><b>⚙️ Menü in Discord</b><span>Eigener Bereich in den Discord-Einstellungen – wie bei Vencord, inkl. Backup & Restore</span></div>
-      <div><b>🧩 Plugins</b><span>13 eingebaute Plugins (u. a. ShowHiddenChannels, RoleColorEverywhere) + eigene</span></div>
-      <div><b>🎨 Themes</b><span>Lokale Themes, Online-Themes, Designer und eigenes CSS – alles live</span></div>
-      <div><b>⬆️ Auto-Update</b><span>Neue Versionen kommen automatisch von GitHub</span></div>
-      <div><b>🔴 Streamer-Tools</b><span>Twitch-Live-Anzeige, Streamer-Blur, Stream-Uhr</span></div>
-      <div><b>🚫 Komfort</b><span>Werbung weg, Chat-Buttons ausblenden, Fenster-Tools</span></div>
+      <div><b>🧩 Alle Vencord-Plugins</b><span>Über 170 Plugins – ShowHiddenChannels, RoleColorEverywhere, MessageLogger …</span></div>
+      <div><b>⚙️ Menü in Discord</b><span>„xImJxstinnCord Settings“ in den Benutzereinstellungen</span></div>
+      <div><b>🎨 Themes & QuickCSS</b><span>Themes-Ordner, Online-Themes und eigenes CSS</span></div>
+      <div><b>🔴 Deine Plugins</b><span>Twitch-Live-Anzeige, Streamer-Blur, Stream-Uhr, xImJxstinn-Designer</span></div>
+      <div><b>⬆️ Auto-Update</b><span>Updates kommen automatisch von deinem GitHub</span></div>
+      <div><b>☁️ Backup & Cloud</b><span>Einstellungen sichern und wiederherstellen</span></div>
     </div>
   </section>
 
   <section class="card">
     <h2><span class="n">3</span>Installieren</h2>
-    <p class="sub">Discord wird kurz geschlossen und danach mit xImJxstinnCord gestartet. Ein vorhandenes Vencord wird dabei ersetzt.</p>
+    <p class="sub">Discord wird kurz geschlossen und danach mit xImJxstinnCord gestartet. Ein vorhandenes Vencord wird ersetzt – deine Plugin-Einstellungen bleiben erhalten.</p>
     <button class="btn primary" id="btnInstall">xImJxstinnCord installieren</button>
     <div class="actions">
       <button class="btn danger" id="btnUninstall">Deinstallieren</button>
@@ -150,7 +150,7 @@ $("btnInstall").onclick = async () => {
 $("btnUninstall").onclick = async () => {
   const br = selectedBranches(); if (!br.length) return log("Bitte wähle oben mindestens eine Discord-Installation aus.", true);
   if (!confirm("xImJxstinnCord aus den ausgewählten Discord-Versionen entfernen?")) return;
-  const settings = confirm("Auch deine Einstellungen (Design, Twitch-Name usw.) löschen?\n\nOK = löschen, Abbrechen = behalten");
+  const settings = false;
   busy(true); log("Entferne …", true);
   try { log((await call("/api/uninstall", { branches: br, settings })).log); } catch (e) { log("❌ " + e.message); }
   finally { busy(false); }

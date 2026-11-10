@@ -1,0 +1,131 @@
+# Baut xImJxstinnCord: aktueller Vencord-Quellcode + deine Plugins (userplugins/) + Branding.
+# Veröffentlicht alles im Release "devbuild" – von dort holen sich Installer und Auto-Updater die Dateien.
+#
+# Läuft bei jedem Push auf main, per Knopf (Actions → Run workflow) und jeden Montag automatisch,
+# damit neue Vencord-Versionen ohne dein Zutun ankommen.
+name: Build xImJxstinnCord
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_COLOR: true
+    steps:
+      - name: Eigenes Repo auschecken
+        uses: actions/checkout@v4
+        with:
+          path: xj
+
+      - name: Neueste Vencord-Version ermitteln
+        id: up
+        run: |
+          UP=$(git ls-remote https://github.com/Vendicated/Vencord refs/heads/main | cut -f1)
+          OLD=$(cat xj/vencord.lock 2>/dev/null || true)
+          echo "sha=$UP" >> "$GITHUB_OUTPUT"
+          echo "Vencord: $UP (vorher: ${OLD:-keins})"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$UP" = "$OLD" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Keine neue Vencord-Version – nichts zu tun."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Vencord-Stand im Repo vermerken
+        if: steps.up.outputs.skip == 'false'
+        working-directory: xj
+        run: |
+          echo "${{ steps.up.outputs.sha }}" > vencord.lock
+          if ! git diff --quiet -- vencord.lock 2>/dev/null || ! git ls-files --error-unmatch vencord.lock >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add vencord.lock
+            git commit -m "Vencord aktualisiert auf ${{ steps.up.outputs.sha }}"
+            git push
+          fi
+          echo "HASH=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_ENV"
+
+      - name: Vencord auschecken
+        if: steps.up.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          repository: Vendicated/Vencord
+          ref: ${{ steps.up.outputs.sha }}
+          path: vencord
+
+      - name: Deine Plugins und Branding einsetzen
+        if: steps.up.outputs.skip == 'false'
+        run: |
+          mkdir -p vencord/src/userplugins
+          cp -r xj/userplugins/. vencord/src/userplugins/
+          node xj/branding/apply.mjs vencord
+
+      - uses: pnpm/action-setup@v4
+        if: steps.up.outputs.skip == 'false'
+        with:
+          package_json_file: vencord/package.json
+
+      - uses: actions/setup-node@v4
+        if: steps.up.outputs.skip == 'false'
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: vencord/pnpm-lock.yaml
+
+      - name: Bauen
+        if: steps.up.outputs.skip == 'false'
+        working-directory: vencord
+        env:
+          VENCORD_REMOTE: ${{ github.repository }}
+          VENCORD_HASH: ${{ env.HASH }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build --standalone
+          ls -la dist
+
+      - uses: actions/setup-go@v5
+        if: steps.up.outputs.skip == 'false'
+        with:
+          go-version: "1.22"
+          cache: false
+
+      - name: Installer bauen
+        if: steps.up.outputs.skip == 'false'
+        working-directory: xj/installer
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags "-s -w -H windowsgui -X main.ModVersion=${HASH}" -o ../../xImJxstinnCord-Installer.exe .
+
+      - name: Release "devbuild" aktualisieren
+        if: steps.up.outputs.skip == 'false'
+        working-directory: xj
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILES="../vencord/dist/patcher.js ../vencord/dist/preload.js ../vencord/dist/renderer.js ../vencord/dist/renderer.css ../xImJxstinnCord-Installer.exe"
+          for f in $FILES; do test -f "$f" || { echo "Fehlt: $f"; exit 1; }; done
+          if ! gh release view devbuild >/dev/null 2>&1; then
+            gh release create devbuild --title "xImJxstinnCord $HASH" --notes "Automatischer Build. Installer herunterladen und starten." --latest
+          fi
+          gh release upload devbuild --clobber $FILES
+          gh release edit devbuild --title "xImJxstinnCord $HASH" --latest \
+            --notes "Automatischer Build von xImJxstinnCord ($HASH) auf Basis von Vencord ${{ steps.up.outputs.sha }}.
+
+          **Installieren:** xImJxstinnCord-Installer.exe herunterladen und starten.
+
+          xImJxstinnCord basiert auf [Vencord](https://github.com/Vendicated/Vencord) und steht wie Vencord unter der GPL-3.0."

@@ -1,68 +1,38 @@
 # xImJxstinnCord
 
-Dein eigener Discord-Mod mit Plugins, Themes und einem Menü in den Discord-Einstellungen, ganz ohne Vencord.
+Dein eigener Discord-Mod: **alle Vencord-Plugins** plus deine eigenen Plugins, dein Name und dein eigener Installer. Updates kommen automatisch aus diesem Repo.
+
+xImJxstinnCord basiert auf [Vencord](https://github.com/Vendicated/Vencord) (© Vendicated und Mitwirkende) und steht deshalb wie Vencord unter der **GPL-3.0** (siehe `LICENSE`). Der Vencord-Quellcode wird beim Bauen direkt von GitHub geholt. Dieses Repo enthält nur die xImJxstinnCord-eigenen Teile.
 
 ## Installieren
-1. Starte `xImJxstinnCord-Installer.exe`. Der Installer öffnet sich als eigenes App-Fenster.
-2. Wähle dein Discord aus und klicke auf **„xImJxstinnCord installieren“**.
-3. In Discord findest du alles unter **Benutzereinstellungen → xImJxstinnCord**.
+1. Lade unter **Releases → devbuild** die Datei `xImJxstinnCord-Installer.exe` herunter und starte sie.
+2. Wähle dein Discord aus und klicke auf **„xImJxstinnCord installieren“**. Ein vorhandenes Vencord wird ersetzt, und deine Plugin-Einstellungen bleiben erhalten.
+3. In Discord findest du alles unter **Benutzereinstellungen → xImJxstinnCord Settings**.
 
-Falls Windows „Der Computer wurde durch Windows geschützt“ anzeigt, klicke auf **Weitere Informationen → Trotzdem ausführen**. Die Warnung kommt nur, weil die .exe nicht signiert ist.
+## Was drin ist
+- Alle Vencord-Plugins (über 170), zum Beispiel ShowHiddenChannels, RoleColorEverywhere, MessageLogger und Translate
+- Vencords Menü in den Discord-Einstellungen: Plugins, Themes, Updater, Cloud, Backup & Restore
+- Deine eigenen Plugins aus `userplugins/`:
+  | Plugin | Funktion |
+  |---|---|
+  | **XJTwitchLive** | LIVE-Abzeichen mit Laufzeit und Zuschauern deines Twitch-Kanals |
+  | **XJStreamerBlur** | Verwischt Chats und DMs beim Streamen (Strg + Shift + B) |
+  | **XJStreamClock** | Verschiebbare Uhr mit Stoppuhr |
+  | **XJDesign** | xImJxstinn-Designer mit Presets, Akzentfarbe, Hintergrund, Schrift und Rundung |
 
-## Das Menü in Discord
-In den Benutzereinstellungen steht ganz oben ein eigener Bereich **xImJxstinnCord**, aufgebaut wie bei Vencord: eine Überschrift mit Linien und Einträge mit Icons. Er hat fünf Seiten:
-| Seite | Inhalt |
-|---|---|
-| **xImJxstinnCord** | Übersicht, Ordner öffnen, Discord neu laden/starten, Tastenkürzel, alles zurücksetzen |
-| **Plugins** | Alle Plugins mit Suche, Filter, An/Aus-Schalter und ⚙ für die Einstellungen |
-| **Themes** | Lokale Themes, Designer, Online-Themes (Links), eigenes CSS |
-| **Updater** | Version, Änderungen, Auto-Update |
-| **Backup & Restore** | Einstellungen als Datei sichern und wiederherstellen |
+## So funktionieren Updates
+GitHub Actions (`.github/workflows/build.yml`) baut xImJxstinnCord:
+- bei jedem Push auf `main`,
+- per Knopf unter **Actions → Build xImJxstinnCord → Run workflow**,
+- jeden Montag automatisch, sobald es eine neue Vencord-Version gibt.
 
-Falls Discord seine Einstellungen einmal umbaut und der Bereich fehlt, öffnet **Strg + Shift + X** das gleiche Menü als Notlösung. Das Kürzel kannst du abschalten.
+Das Ergebnis landet im Release **devbuild**. Der eingebaute Updater in Discord (Einstellungen → Updater) findet es dort und installiert es.
 
-## Eingebaute Plugins
-**Versteckte Kanäle anzeigen (ShowHiddenChannels)** · **Rollenfarben überall (RoleColorEverywhere)** · Twitch-Live-Anzeige · Streamer-Blur · Stream-Uhr · Werbung weg · Chat-Buttons ausblenden · „schreibt gerade“ ausblenden · Aktiv-Spalte ausblenden · Kompakte Serverleiste · Fenster-Tools · DevTools-Kürzel
+## Eigene Plugins hinzufügen
+Lege einen Ordner in `userplugins/` an, zum Beispiel `userplugins/meinPlugin/index.ts`, und schreibe ein normales [Vencord-Plugin](https://docs.vencord.dev/plugins/) hinein. Nach einem Push baut GitHub automatisch eine neue Version. Dateien und Ordner, die mit `_` beginnen (wie `_xjShared.ts`), sind nur Helfer und werden nicht als Plugin geladen.
 
-## Eigene Plugins
-Lege `.js`-Dateien in `%APPDATA%\xImJxstinnCord\plugins` und klicke in Discord unter **Plugins** auf **„Neu laden“**. Die Datei `beispiel-plugin.js` dort zeigt dir alle Möglichkeiten. Ein Plugin mit Fehlern wird rot markiert, die anderen laufen trotzdem weiter.
-
-In eigenen Plugins hast du außerdem `ctx.webpack.findStore("Name")`, um an Discords interne Daten zu kommen (zum Beispiel `GuildMemberStore`).
-
-```js
-XJ.definePlugin({
-    id: "MeinPlugin",
-    name: "Mein Plugin",
-    description: "Was es macht",
-    settings: { farbe: { type: "color", label: "Farbe", default: "#9146ff" } },
-    css: s => `[class*="username_"] { color: ${s.farbe} !important; }`,
-    start(ctx) { ctx.toast("Läuft!"); },
-    stop(ctx) { }
-});
-```
-
-## Themes
-- **Lokal:** `.css`-Dateien in `%APPDATA%\xImJxstinnCord\themes`. Änderungen an den Dateien werden sofort übernommen. Vencord- und BetterDiscord-Themes funktionieren meistens auch.
-- **Online:** Links zu `.css`-Dateien, zum Beispiel von GitHub.
-- **Designer:** Presets, Akzentfarbe, Hintergrundbild, Schrift, Rundung.
-- **Eigenes CSS:** Editor mit Live-Vorschau.
-
-## Auto-Update
-Der Mod prüft beim Start und danach alle 6 Stunden das neueste Release von `ximjxstinn/ximjxstinncord` auf GitHub. Das Repo muss **öffentlich** sein.
-
-Eine neue Version veröffentlichst du so:
-1. Erhöhe die Zahl in der Datei `VERSION`, zum Beispiel von `1.2.0` auf `1.3.0`.
-2. Committe und pushe auf `main`.
-
-GitHub Actions baut daraufhin den Installer und erstellt das Release `v1.3.0`. Alle installierten Mods holen sich die neue Version dann selbst. Wenn die Versionsnummer gleich bleibt, entsteht kein neues Release.
-
-## Projektaufbau
-- `mod/patcher.js`: Loader im Hauptprozess (Fenster, CSP, Discord-Updates, Auto-Update, Twitch)
-- `mod/preload.js`: Brücke zu Windows (Einstellungen, Themes, Plugins laden)
-- `mod/renderer.js`: Plugin-System, Theme-System, Menü und eingebaute Plugins
-- `mod/examples/`: Beispiel-Plugin und Beispiel-Theme, die bei der Installation angelegt werden
-- `*.go`, `ui/`: der Installer (App-Fenster über WebView2; falls das fehlt, Browser als Ersatz)
-- `vendor/`: mitgelieferte Go-Bibliotheken, damit der Build ohne Internet funktioniert
-- `winres/`, `rsrc_windows_amd64.syso`: Icon und Windows-Manifest
-
-Installer bauen: `set GOOS=windows` und dann `go build -ldflags "-s -w -H windowsgui" -o xImJxstinnCord-Installer.exe .`
+## Aufbau
+- `userplugins/`: deine eigenen Plugins
+- `branding/apply.mjs`: setzt den Namen „xImJxstinnCord“ ins Menü
+- `installer/`: der Windows-Installer (Go, App-Fenster über WebView2)
+- `vencord.lock`: welche Vencord-Version zuletzt gebaut wurde (setzt der Build automatisch)

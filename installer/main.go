@@ -61,8 +61,8 @@ func dispatch(action string, body []byte) any {
 	case "uninstall":
 		return doUninstall(q)
 	case "open":
-		_ = os.MkdirAll(DataDir(), 0o755)
-		OpenFolder(DataDir())
+		_ = os.MkdirAll(SettingsDir(), 0o755)
+		OpenFolder(SettingsDir())
 		return map[string]bool{"ok": true}
 	case "ping":
 		return map[string]bool{"ok": true}
@@ -93,7 +93,7 @@ func doState() any {
 		"discords":  list,
 		"installed": InstalledModVersion(),
 		"bundled":   ModVersion,
-		"dataDir":   DataDir(),
+		"dataDir":   SettingsDir(),
 	}
 }
 
@@ -108,11 +108,11 @@ func doInstall(q actionReq) actionRes {
 		log("Bitte wähle mindestens eine Discord-Installation aus.")
 		return res
 	}
-	if err := InstallModFiles(); err != nil {
-		log("❌ Mod-Dateien konnten nicht gespeichert werden: " + err.Error())
+	if err := InstallModFiles(log); err != nil {
+		log("❌ xImJxstinnCord konnte nicht geladen werden: " + err.Error())
 		return res
 	}
-	log("✅ xImJxstinnCord " + ModVersion + " gespeichert")
+	log("✅ xImJxstinnCord " + InstalledModVersion() + " heruntergeladen")
 
 	allOK := true
 	for _, d := range targets {
@@ -136,7 +136,7 @@ func doInstall(q actionReq) actionRes {
 	}
 	res.OK = allOK
 	if allOK {
-		log("🎉 Fertig! In Discord findest du alles unter Benutzereinstellungen → xImJxstinnCord.")
+		log("🎉 Fertig! In Discord: Benutzereinstellungen → xImJxstinnCord Settings.")
 	}
 	return res
 }
@@ -171,11 +171,9 @@ func doUninstall(q actionReq) actionRes {
 			stillUsed = true
 		}
 	}
-	if q.Settings && stillUsed {
-		log("Einstellungen behalten – eine andere Discord-Version nutzt xImJxstinnCord noch")
-	} else if q.Settings {
+	if !stillUsed {
 		if err := os.RemoveAll(DataDir()); err == nil {
-			log("🗑 Einstellungen, Plugins, Themes und Mod-Dateien gelöscht")
+			log("🗑 Programmdateien entfernt (deine Plugin-Einstellungen bleiben erhalten)")
 		}
 	}
 	return res
