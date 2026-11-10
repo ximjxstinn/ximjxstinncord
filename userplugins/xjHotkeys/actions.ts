@@ -10,8 +10,8 @@ import {
 import { Settings } from "@api/Settings";
 import { insertTextIntoChatInputBox } from "@utils/discord";
 import {
-    ChannelStore, GuildChannelStore, NavigationRouter, PermissionsBits, PermissionStore,
-    SelectedChannelStore, SelectedGuildStore
+    ChannelStore, FluxDispatcher, GuildChannelStore, GuildStore, NavigationRouter, PermissionsBits,
+    PermissionStore, SelectedChannelStore, SelectedGuildStore
 } from "@webpack/common";
 
 import { setStyle } from "../_xjShared";
@@ -103,7 +103,45 @@ export const hasLiveSwitch = (name: string) => name in LIVE;
 /** Ist das Plugin aus Sicht des Nutzers an? (aktiviert und nicht pausiert) */
 export const isEffectivelyOn = (name: string) => isPluginEnabled(name) && !isPaused(name);
 
+function guildChannels(gid: string): any[] {
+    const cs = ChannelStore as any;
+    try {
+        const m = cs.getMutableGuildChannelsForGuild?.(gid);
+        if (m) return Object.values(m);
+    } catch { }
+    const out: any[] = [];
+    try {
+        const groups = (GuildChannelStore as any).getChannels(gid) ?? {};
+        for (const v of Object.values(groups)) if (Array.isArray(v)) for (const o of v as any[]) if (o?.channel?.id) out.push(o.channel);
+    } catch { }
+    return out;
+}
+
+/**
+ * Discord die Kanalliste wirklich neu berechnen lassen (wie bei einer echten Kanal-Änderung),
+ * ohne Neu-Laden: die vorhandenen Kanäle werden unverändert noch einmal "aktualisiert".
+ */
 function refreshChannelStores() {
+    const current = SelectedGuildStore.getGuildId();
+    let ids: string[] = [];
+    try { ids = Object.keys((GuildStore as any).getGuilds?.() ?? {}); } catch { }
+    if (current) ids = [current, ...ids.filter(i => i !== current)];
+
+    const push = (gid: string) => {
+        const channels = guildChannels(gid);
+        if (!channels.length) return;
+        try { FluxDispatcher.dispatch({ type: "CHANNEL_UPDATES", channels } as any); } catch { }
+    };
+    if (ids.length) push(ids[0]);
+    // restliche Server leise nach und nach, damit nichts ruckelt
+    let i = 1;
+    const next = () => {
+        const end = Math.min(i + 5, ids.length);
+        for (; i < end; i++) push(ids[i]);
+        if (i < ids.length) setTimeout(next, 30);
+    };
+    if (ids.length > 1) setTimeout(next, 30);
+
     for (const st of [GuildChannelStore, ChannelStore, PermissionStore] as any[]) {
         try { st?.emitChange?.(); } catch { }
     }
@@ -122,6 +160,12 @@ function shcCanView(id: string) {
     } catch { return true; }
 }
 
+function shcHasHiddenRows() {
+    for (const el of document.querySelectorAll<HTMLElement>('[data-list-item-id^="channels___"]'))
+        if (!shcCanView(el.getAttribute("data-list-item-id")!.slice(11))) return true;
+    return false;
+}
+
 function shcMarkRows() {
     for (const el of document.querySelectorAll<HTMLElement>('[data-list-item-id^="channels___"]')) {
         const row = (el.closest("li") ?? el) as HTMLElement;
@@ -136,17 +180,22 @@ const shcLive: LiveSwitch = {
         if (!p.__xjOriginal) p.__xjOriginal = p.isHiddenChannel;
         // Alle Stellen, an denen ShowHiddenChannels eingreift, fragen diese Funktion – „nein“ = Discord verhält sich normal
         p.isHiddenChannel = () => false;
-        setStyle("xj-shc-paused", `.${SHC_HIDE_CLASS} { display: none !important; }`);
-        shcMarkRows();
-        if (!shcObserver) {
-            shcObserver = new MutationObserver(() => {
-                if (shcPending) return;
-                shcPending = true;
-                setTimeout(() => { shcPending = false; shcMarkRows(); }, 40);
-            });
-            shcObserver.observe(document.body, { childList: true, subtree: true });
-        }
         refreshChannelStores();
+        // Notlösung nur, falls Discord die Liste doch nicht neu aufgebaut hat
+        setTimeout(() => {
+            if (!readPaused().ShowHiddenChannels) return;
+            if (!shcHasHiddenRows()) return;
+            setStyle("xj-shc-paused", `.${SHC_HIDE_CLASS} { display: none !important; }`);
+            shcMarkRows();
+            if (!shcObserver) {
+                shcObserver = new MutationObserver(() => {
+                    if (shcPending) return;
+                    shcPending = true;
+                    setTimeout(() => { shcPending = false; shcMarkRows(); }, 40);
+                });
+                shcObserver.observe(document.body, { childList: true, subtree: true });
+            }
+        }, 700);
         // Falls gerade ein gesperrter Kanal offen ist: zurück zum Server
         try {
             const cid = SelectedChannelStore.getChannelId();
