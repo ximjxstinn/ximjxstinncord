@@ -51,11 +51,10 @@ XJ.definePlugin({
 Der Mod prüft beim Start und danach alle 6 Stunden das neueste Release von `ximjxstinn/ximjxstinncord` auf GitHub. Das Repo muss **öffentlich** sein.
 
 Eine neue Version veröffentlichst du so:
-```
-git tag v1.2.0
-git push origin v1.2.0
-```
-GitHub Actions baut daraufhin den Installer und erstellt das Release. Alle installierten Mods holen sich die neue Version dann selbst.
+1. Erhöhe die Zahl in der Datei `VERSION`, zum Beispiel von `1.2.0` auf `1.3.0`.
+2. Committe und pushe auf `main`.
+
+GitHub Actions baut daraufhin den Installer und erstellt das Release `v1.3.0`. Alle installierten Mods holen sich die neue Version dann selbst. Wenn die Versionsnummer gleich bleibt, entsteht kein neues Release.
 
 ## Projektaufbau
 - `mod/patcher.js`: Loader im Hauptprozess (Fenster, CSP, Discord-Updates, Auto-Update, Twitch)
