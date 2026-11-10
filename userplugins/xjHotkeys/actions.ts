@@ -9,10 +9,9 @@ import {
 } from "@api/PluginManager";
 import { Settings } from "@api/Settings";
 import { insertTextIntoChatInputBox } from "@utils/discord";
-import { ChannelStore, NavigationRouter } from "@webpack/common";
+import { NavigationRouter } from "@webpack/common";
 
 import { setStyle } from "../_xjShared";
-import { toggleStreamerBlur } from "../xjStreamerBlur";
 
 export interface HotkeyAction {
     id: string;
@@ -121,66 +120,12 @@ export function togglePlugin(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Zustände der Ein-/Ausblenden-Aktionen (bleiben über Neustarts erhalten)
+// CSS-Schnipsel der eigenen Kürzel
 // ---------------------------------------------------------------------------
-// Versteckte Kanäle: ShowHiddenChannels selbst fragen, welche Kanäle versteckt sind,
-// und genau diese Einträge in der Kanalliste markieren.
-const HIDE_CLASS = "xj-shc-hide";
-
-export function markHiddenChannels() {
-    const active = !!store()?.hideHiddenChannels;
-    const shc = plugins.ShowHiddenChannels as any;
-    const canCheck = active && isPluginEnabled("ShowHiddenChannels") && typeof shc?.isHiddenChannel === "function";
-    for (const el of document.querySelectorAll<HTMLElement>('[data-list-item-id^="channels___"]')) {
-        const row = (el.closest("li") ?? el) as HTMLElement;
-        let hidden = false;
-        if (canCheck) {
-            const id = el.getAttribute("data-list-item-id")!.slice("channels___".length);
-            try {
-                const ch = ChannelStore.getChannel(id);
-                hidden = !!ch && !!shc.isHiddenChannel(ch);
-            } catch { }
-        }
-        row.classList.toggle(HIDE_CLASS, hidden);
-    }
-}
-
-let observer: MutationObserver | null = null;
-let pending = false;
-/** Beobachtet die Kanalliste, damit auch neu angezeigte Kanäle sofort ausgeblendet werden */
-export function startChannelWatcher() {
-    if (observer) return;
-    observer = new MutationObserver(() => {
-        if (pending || !store()?.hideHiddenChannels) return;
-        pending = true;
-        setTimeout(() => { pending = false; markHiddenChannels(); }, 40);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    markHiddenChannels();
-}
-export function stopChannelWatcher() {
-    observer?.disconnect();
-    observer = null;
-    document.querySelectorAll("." + HIDE_CLASS).forEach(e => e.classList.remove(HIDE_CLASS));
-}
-
 export function applyVisibilityStyles() {
-    const s = store();
     const css: string[] = [];
-    if (s?.hideHiddenChannels)
-        css.push(`.${HIDE_CLASS}, li:has(.vc-shc-hidden-channel-icon) { display: none !important; }`);
-    if (s?.hideLoggedMessages)
-        css.push(`.messagelogger-deleted, .messagelogger-edited, .messagelogger-edit-marker { display: none !important; }`);
     for (const c of getCustomHotkeys()) if (c.type === "css" && c.on && c.css) css.push(c.css);
     setStyle("xj-hotkey-visibility", css.join("\n") || null);
-}
-
-function flip(key: string) {
-    const s = store();
-    s[key] = !s[key];
-    applyVisibilityStyles();
-    markHiddenChannels();
-    return !s[key];
 }
 
 const settingFlip = (plugin: string, key: string) => {
@@ -190,76 +135,15 @@ const settingFlip = (plugin: string, key: string) => {
 };
 
 // ---------------------------------------------------------------------------
-// Eingebaute Aktionen
+// Standard: diese Plugins bekommen beim ersten Start ein Kürzel zum An-/Ausschalten
 // ---------------------------------------------------------------------------
-export const BUILTIN_ACTIONS: HotkeyAction[] = [
-    {
-        id: "shc", plugin: "ShowHiddenChannels", defaultCombo: "ctrl+shift+h",
-        label: "Versteckte Kanäle ein-/ausblenden",
-        description: "Blendet die Kanäle mit Schloss sofort aus oder wieder ein – ohne Neu-Laden",
-        run: () => flip("hideHiddenChannels") ? "🔒 Versteckte Kanäle sichtbar" : "🙈 Versteckte Kanäle ausgeblendet"
-    },
-    {
-        id: "shc-plugin", plugin: "ShowHiddenChannels", togglesPlugin: true,
-        label: "ShowHiddenChannels komplett an/aus",
-        description: "Schaltet das ganze Plugin um – Discord lädt dafür kurz neu",
-        run: () => togglePlugin("ShowHiddenChannels")
-    },
-    {
-        id: "ml", plugin: "MessageLogger", defaultCombo: "ctrl+shift+l",
-        label: "Gelöschte Nachrichten ein-/ausblenden",
-        description: "Zeigt oder versteckt gelöschte und bearbeitete Nachrichten vom MessageLogger",
-        run: () => flip("hideLoggedMessages") ? "🗑 Gelöschte Nachrichten sichtbar" : "🙈 Gelöschte Nachrichten ausgeblendet"
-    },
-    {
-        id: "blur", plugin: "XJStreamerBlur", defaultCombo: "ctrl+shift+b",
-        label: "Streamer-Blur umschalten",
-        description: "Verwischt Chats und DMs – oder hebt es wieder auf",
-        run: () => toggleStreamerBlur() ? "🙈 Streamer-Blur an" : "👀 Streamer-Blur aus"
-    },
-    {
-        id: "silent", plugin: "SilentTyping",
-        label: "Unsichtbar tippen umschalten",
-        description: "Andere sehen nicht, dass du tippst (SilentTyping)",
-        run: () => settingFlip("SilentTyping", "isEnabled") ? "🤫 Unsichtbar tippen an" : "⌨️ Unsichtbar tippen aus"
-    },
-    {
-        id: "translate", plugin: "Translate",
-        label: "Automatisch übersetzen umschalten",
-        description: "Deine Nachrichten werden vor dem Senden übersetzt (Translate)",
-        run: () => settingFlip("Translate", "autoTranslate") ? "🌍 Auto-Übersetzen an" : "🌍 Auto-Übersetzen aus"
-    },
-    {
-        id: "design", plugin: "XJDesign", togglesPlugin: true,
-        label: "Designer an/aus",
-        description: "Schaltet dein xImJxstinn-Farbschema ein oder aus",
-        run: () => togglePlugin("XJDesign")
-    },
-    {
-        id: "twitch", plugin: "XJTwitchLive", togglesPlugin: true,
-        label: "Twitch-Anzeige an/aus",
-        description: "Blendet das LIVE-Abzeichen ein oder aus",
-        run: () => togglePlugin("XJTwitchLive")
-    },
-    {
-        id: "clock", plugin: "XJStreamClock", togglesPlugin: true,
-        label: "Stream-Uhr an/aus",
-        description: "Blendet die Uhr ein oder aus",
-        run: () => togglePlugin("XJStreamClock")
-    },
-    {
-        id: "quickcss",
-        label: "Eigenes CSS an/aus",
-        description: "Schaltet dein QuickCSS ein oder aus",
-        run: () => { Settings.useQuickCss = !Settings.useQuickCss; return Settings.useQuickCss ? "🎨 Eigenes CSS an" : "🎨 Eigenes CSS aus"; }
-    },
-    {
-        id: "reload",
-        label: "Discord neu laden",
-        description: "Lädt Discord neu (wie Strg + R)",
-        run: () => { location.reload(); }
-    }
-];
+export const DEFAULT_PLUGIN_BINDS: Record<string, string> = {
+    ShowHiddenChannels: "ctrl+shift+h",
+    MessageLogger: "ctrl+shift+l",
+    XJStreamerBlur: "ctrl+shift+b"
+};
+/** Alte Aktions-IDs aus früheren Versionen → Plugin */
+const OLD_IDS: Record<string, string> = { shc: "ShowHiddenChannels", "shc-plugin": "ShowHiddenChannels", ml: "MessageLogger", blur: "XJStreamerBlur", design: "XJDesign", twitch: "XJTwitchLive", clock: "XJStreamClock" };
 
 // ---------------------------------------------------------------------------
 // Eigene Kürzel
@@ -353,7 +237,34 @@ function customToAction(c: CustomHotkey): HotkeyAction {
 
 /** Alle Aktionen inkl. eigener Kürzel */
 export function getActions(): HotkeyAction[] {
-    return [...BUILTIN_ACTIONS, ...getCustomHotkeys().map(customToAction)];
+    return getCustomHotkeys().map(customToAction);
+}
+
+// ---------------------------------------------------------------------------
+// Plugin-Kürzel (Plugin an/aus)
+// ---------------------------------------------------------------------------
+export const pluginHotkeyId = (name: string) => "toggle:" + name;
+
+export function getPluginHotkeys(): CustomHotkey[] {
+    return getCustomHotkeys().filter(c => c.type === "plugin" && c.plugin);
+}
+
+export function ensurePluginHotkey(name: string) {
+    const id = pluginHotkeyId(name);
+    if (!getCustomHotkeys().some(c => c.id === id)) saveCustomHotkey({ id, type: "plugin", label: "", plugin: name });
+    return id;
+}
+
+export function getPluginBind(name: string) {
+    return getBinds()[pluginHotkeyId(name)] ?? null;
+}
+
+export function setPluginBind(name: string, combo: string | null) {
+    setBind(ensurePluginHotkey(name), combo);
+}
+
+export function removePluginHotkey(name: string) {
+    deleteCustomHotkey(pluginHotkeyId(name));
 }
 
 // ---------------------------------------------------------------------------
@@ -361,11 +272,25 @@ export function getActions(): HotkeyAction[] {
 // ---------------------------------------------------------------------------
 export function getBinds(): Record<string, string> {
     const s = store();
-    if (s && !s.initialized) {
-        const defaults: Record<string, string> = {};
-        for (const a of BUILTIN_ACTIONS) if (a.defaultCombo) defaults[a.id] = a.defaultCombo;
-        s.binds = JSON.stringify(defaults);
+    if (!s) return {};
+    if (!s.initialized) {
         s.initialized = true;
+        s.binds = JSON.stringify({});
+        for (const [name, combo] of Object.entries(DEFAULT_PLUGIN_BINDS)) if (plugins[name]) setPluginBind(name, combo);
+    }
+    // Übernahme aus früheren Versionen (Ausblenden-Aktionen → Plugin an/aus)
+    if (!s.migratedV3) {
+        s.migratedV3 = true;
+        s.hideHiddenChannels = false;
+        s.hideLoggedMessages = false;
+        const binds = readJson<Record<string, string>>("binds", {});
+        for (const [oldId, plugin] of Object.entries(OLD_IDS)) {
+            const combo = binds[oldId];
+            if (!combo) continue;
+            delete binds[oldId];
+            s.binds = JSON.stringify(binds);
+            if (!getPluginBind(plugin)) setPluginBind(plugin, combo);
+        }
     }
     return readJson<Record<string, string>>("binds", {});
 }

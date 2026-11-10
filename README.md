@@ -17,7 +17,7 @@ xImJxstinnCord basiert auf [Vencord](https://github.com/Vendicated/Vencord) (© 
   |---|---|
   | **XJTwitchLive** | LIVE-Abzeichen mit Laufzeit und Zuschauern deines Twitch-Kanals |
   | **XJStreamerBlur** | Verwischt Chats und DMs beim Streamen |
-  | **XJHotkeys** | Tastenkürzel: fertige (versteckte Kanäle Strg + Shift + H, gelöschte Nachrichten Strg + Shift + L, Streamer-Blur Strg + Shift + B) und **eigene** – Plugin an/aus, Einstellung umschalten, Text einfügen, Link/Kanal öffnen, CSS an/aus. Plugins, die einen Neustart brauchen, laden Discord automatisch neu |
+  | **XJHotkeys** | Plugins per Tastenkürzel an/aus (Standard: ShowHiddenChannels Strg + Shift + H, MessageLogger Strg + Shift + L, XJStreamerBlur Strg + Shift + B). Jedes Plugin kann ein Kürzel bekommen; Plugins, die einen Neustart brauchen, laden Discord automatisch neu. Dazu weitere Kürzel für Text, Links, Kanäle und CSS |
   | **XJStreamClock** | Verschiebbare Uhr mit Stoppuhr |
   | **XJDesign** | xImJxstinn-Designer mit Presets, Akzentfarbe, Hintergrund, Schrift und Rundung |
   | **XJStyle** | Modernes Design fürs Menü: leuchtende Plugin-Karten, Farbverläufe, runde Ecken (standardmäßig an) |

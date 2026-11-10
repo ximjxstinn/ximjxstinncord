@@ -216,6 +216,21 @@ select.xjm-input { width: auto; min-width: 160px; }
 .xjm-key.empty { color: var(--mu); font-family: inherit; font-weight: 600; border-style: dashed; box-shadow: none; }
 .xjm-key.rec { color: #fff; border-color: var(--a); background: color-mix(in srgb, var(--a) 30%, transparent); animation: xjm-pulse 1s infinite; }
 @keyframes xjm-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 30%, transparent); } }
+.xjm-hkadd { position: relative; }
+.xjm-suggest {
+    margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 14px;
+    background: var(--glass2); border: 1px solid var(--line);
+}
+.xjm-suggest-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+    background: none; border: 0; color: var(--tx); text-align: left; font-size: 14px;
+}
+.xjm-suggest-item:hover { background: color-mix(in srgb, var(--a) 18%, transparent); }
+.xjm-suggest-item b { flex: 1; color: var(--hd); }
+.xjm-suggest-plus { color: var(--a); display: grid; }
+.xjm-avatar.small { width: 30px; height: 30px; border-radius: 9px; font-size: 14px; }
+.xjm-hk .xjm-switch { margin-right: 4px; }
+.xjm-hk-meta { display: flex; gap: 5px; }
 .xjm-hk.custom .xjm-hk-icon { background: linear-gradient(135deg, var(--a2), var(--a)); }
 .xjm-hk-icon.big { width: 46px; height: 46px; border-radius: 14px; }
 .xjm-emptyadd {

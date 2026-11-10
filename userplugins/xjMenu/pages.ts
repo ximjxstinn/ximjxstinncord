@@ -18,8 +18,9 @@ import { React } from "@webpack/common";
 import gitHash from "~git-hash";
 
 import {
-    autoReloadEnabled, channelPath, CUSTOM_TYPES, CustomHotkey, deleteCustomHotkey, formatCombo, getActions,
-    getBinds, newCustomId, recording, saveCustomHotkey, scheduleReload, setBind
+    autoReloadEnabled, canToggleLive, channelPath, CUSTOM_TYPES, CustomHotkey, deleteCustomHotkey, ensurePluginHotkey,
+    formatCombo, getActions, getBinds, getPluginBind, getPluginHotkeys, newCustomId, pluginHotkeyId, recording,
+    removePluginHotkey, saveCustomHotkey, scheduleReload, setBind
 } from "../xjHotkeys/actions";
 import { CSS } from "./style";
 
@@ -238,6 +239,14 @@ function openSettings(p: any) {
                 h("div", { class: "xjm-opt-text" }, h("b", {}, "Plugin aktiv"),
                     p.required ? h("span", {}, "Wird für xImJxstinnCord benötigt") : null),
                 toggle(isPluginEnabled(p.name), v => { setEnabled(p, v); draw(); }, !!p.required)),
+            p.required ? null : h("div", { class: "xjm-opt main" },
+                h("div", { class: "xjm-opt-text" }, h("b", {}, "Tastenkürzel"),
+                    h("span", {}, "Schaltet das Plugin per Taste an/aus" + (canToggleLive(p.name) ? "" : " – Discord lädt dabei kurz neu"))),
+                h("div", { class: "xjm-hk-side" },
+                    h("button", { class: "xjm-key" + (getPluginBind(p.name) ? "" : " empty"), "data-rec": pluginHotkeyId(p.name),
+                        onclick: () => { ensurePluginHotkey(p.name); startRecording(pluginHotkeyId(p.name), draw); } },
+                        getPluginBind(p.name) ? formatCombo(getPluginBind(p.name)) : "Taste festlegen"),
+                    getPluginBind(p.name) ? h("button", { class: "xjm-iconbtn", title: "Kürzel entfernen", onclick: () => { removePluginHotkey(p.name); draw(); } }, icon("close", 15)) : null)),
             rows.length ? rows : h("div", { class: "xjm-empty small" }, "Dieses Plugin hat keine weiteren Einstellungen."),
             advanced ? h("button", { class: "xjm-btn ghost", onclick: () => { close(); openPluginModal(p, n => needsReload(n, true)); } },
                 icon("gear", 16), "Erweiterte Einstellungen") : null,
@@ -506,9 +515,7 @@ function pageBackup() {
 // Seite: Tastenkürzel
 // ---------------------------------------------------------------------------
 function hotkeyFor(plugin: string) {
-    const binds = getBinds();
-    const a = getActions().find(x => x.plugin === plugin && binds[x.id]);
-    return a ? binds[a.id] : null;
+    return getPluginBind(plugin);
 }
 
 function startRecording(id: string, redraw: () => void) {
@@ -543,6 +550,7 @@ function startRecording(id: string, redraw: () => void) {
 
 function openCustomEditor(existing: CustomHotkey | null, redraw: () => void) {
     const c: CustomHotkey = existing ? { ...existing } : { id: newCustomId(), type: "text", label: "" };
+    if (c.type === "plugin") c.type = "setting";
     const ov = h("div", { class: "xjm-overlay" });
     const close = () => { ov.remove(); document.removeEventListener("keydown", esc, true); };
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !recording.active) { e.stopPropagation(); close(); } };
@@ -602,7 +610,7 @@ function openCustomEditor(existing: CustomHotkey | null, redraw: () => void) {
                 h("div", { class: "xjm-hk-icon big" }, icon("keyboard", 22)),
                 h("div", { class: "xjm-dialog-title" }, h("h2", {}, existing ? "Kürzel bearbeiten" : "Neues Tastenkürzel"), h("p", {}, type.hint)),
                 h("button", { class: "xjm-iconbtn", title: "Schließen", onclick: close }, icon("close", 18))),
-            h("div", { class: "xjm-typegrid" }, CUSTOM_TYPES.map(t =>
+            h("div", { class: "xjm-typegrid" }, CUSTOM_TYPES.filter(t => t.type !== "plugin").map(t =>
                 h("button", { class: "xjm-typebtn" + (c.type === t.type ? " sel" : ""), onclick: () => { c.type = t.type; draw(); } }, t.label))),
             field("Name (optional)", h("input", { class: "xjm-input", value: c.label, placeholder: "z. B. Twitch-Link posten", onkeydown: stop, oninput: (e: any) => { c.label = e.target.value; } })),
             fields,
@@ -616,55 +624,99 @@ function openCustomEditor(existing: CustomHotkey | null, redraw: () => void) {
     document.body.append(ov);
 }
 
+const hkState = { q: "" };
+
 function pageHotkeys(redraw: () => void) {
     const binds = getBinds();
-    const actions = getActions().filter(a => a.custom || !a.plugin || plugins[a.plugin]);
-    const builtin = actions.filter(a => !a.custom);
-    const custom = actions.filter(a => a.custom);
     const hk = Settings.plugins.XJHotkeys as any;
     const hkOn = isPluginEnabled("XJHotkeys");
+    const pluginKeys = getPluginHotkeys().filter(c => plugins[c.plugin!]);
+    const assigned = new Set(pluginKeys.map(c => c.plugin));
+    const others = getActions().filter(a => a.custom && a.custom.type !== "plugin");
 
-    const row = (a: any) => {
-        const pluginOn = !a.plugin || a.togglesPlugin || isPluginEnabled(a.plugin);
-        const combo = binds[a.id];
-        const ic = a.custom ? ({ plugin: "plug", setting: "gear", text: "code", link: "star", channel: "home", css: "brush" } as any)[a.custom.type] : "keyboard";
-        return h("div", { class: "xjm-hk" + (combo ? " set" : "") + (a.custom ? " custom" : "") },
-            h("div", { class: "xjm-hk-icon" }, icon(ic, 18)),
+    const pluginRow = (c: CustomHotkey) => {
+        const name = c.plugin!;
+        const p: any = plugins[name];
+        const on = isPluginEnabled(name);
+        const combo = binds[c.id];
+        return h("div", { class: "xjm-hk" + (combo ? " set" : "") },
+            h("div", { class: "xjm-avatar", style: `--h:${hueOf(name)}` }, name[0]),
             h("div", { class: "xjm-opt-text" },
-                h("b", {}, a.label),
-                h("span", {}, a.description),
-                a.plugin ? h("div", { class: "xjm-hk-meta" },
-                    h("span", { class: "xjm-tag" + (pluginOn ? " ok" : "") }, a.plugin + (pluginOn ? "" : " · aus"))) : null),
+                h("b", {}, name),
+                h("span", {}, p?.description ?? ""),
+                h("div", { class: "xjm-hk-meta" },
+                    h("span", { class: "xjm-tag" + (on ? " ok" : "") }, on ? "an" : "aus"),
+                    canToggleLive(name) ? null : h("span", { class: "xjm-tag warn" }, "lädt neu"))),
             h("div", { class: "xjm-hk-side" },
-                h("button", { class: "xjm-key" + (combo ? "" : " empty"), "data-rec": a.id, title: "Klicken und neue Taste drücken (Entf = löschen, Esc = abbrechen)",
-                    onclick: () => startRecording(a.id, redraw) }, combo ? formatCombo(combo) : "Taste festlegen"),
-                combo && !a.custom ? h("button", { class: "xjm-iconbtn", title: "Kürzel entfernen", onclick: () => { setBind(a.id, null); redraw(); } }, icon("close", 15)) : null,
-                a.custom ? h("button", { class: "xjm-iconbtn", title: "Bearbeiten", onclick: () => openCustomEditor(a.custom, redraw) }, icon("gear", 15)) : null,
-                a.custom ? h("button", { class: "xjm-iconbtn", title: "Löschen", onclick: () => { if (confirm(`„${a.label}“ löschen?`)) { deleteCustomHotkey(a.id); redraw(); } } }, icon("trash", 15)) : null));
+                toggle(on, v => { setEnabled(p, v); redraw(); }),
+                h("button", { class: "xjm-key" + (combo ? "" : " empty"), "data-rec": c.id, title: "Klicken und neue Taste drücken (Entf = löschen, Esc = abbrechen)",
+                    onclick: () => startRecording(c.id, redraw) }, combo ? formatCombo(combo) : "Taste festlegen"),
+                h("button", { class: "xjm-iconbtn", title: "Entfernen", onclick: () => { removePluginHotkey(name); redraw(); } }, icon("trash", 15))));
     };
 
+    const otherRow = (a: any) => {
+        const combo = binds[a.id];
+        const ic = ({ setting: "gear", text: "code", link: "star", channel: "home", css: "brush" } as any)[a.custom.type] ?? "keyboard";
+        return h("div", { class: "xjm-hk custom" + (combo ? " set" : "") },
+            h("div", { class: "xjm-hk-icon" }, icon(ic, 18)),
+            h("div", { class: "xjm-opt-text" }, h("b", {}, a.label), h("span", {}, a.description)),
+            h("div", { class: "xjm-hk-side" },
+                h("button", { class: "xjm-key" + (combo ? "" : " empty"), "data-rec": a.id, onclick: () => startRecording(a.id, redraw) }, combo ? formatCombo(combo) : "Taste festlegen"),
+                h("button", { class: "xjm-iconbtn", title: "Bearbeiten", onclick: () => openCustomEditor(a.custom, redraw) }, icon("gear", 15)),
+                h("button", { class: "xjm-iconbtn", title: "Löschen", onclick: () => { if (confirm(`„${a.label}“ löschen?`)) { deleteCustomHotkey(a.id); redraw(); } } }, icon("trash", 15))));
+    };
+
+    // Plugin hinzufügen: Suche über alle Plugins
+    const q = hkState.q.trim().toLowerCase();
+    const candidates = (Object.values(plugins) as any[])
+        .filter(p => !p.hidden && !p.required && !assigned.has(p.name) && p.name !== "XJHotkeys")
+        .filter(p => !q || (p.name + " " + (p.description ?? "")).toLowerCase().includes(q))
+        .sort((x, y) => x.name.localeCompare(y.name))
+        .slice(0, q ? 12 : 0);
+    const search = h("input", {
+        class: "xjm-search-input", placeholder: "Plugin suchen und Kürzel hinzufügen …", value: hkState.q,
+        onkeydown: (e: any) => e.stopPropagation(),
+        oninput: (e: any) => {
+            hkState.q = e.target.value;
+            const pos = e.target.selectionStart;
+            redraw();
+            const s = document.querySelector<HTMLInputElement>(".xjm-hkadd .xjm-search-input");
+            s?.focus(); s?.setSelectionRange(pos, pos);
+        }
+    });
+
     return [
-        pageHead("Tastenkürzel", "Plugins und eigene Aktionen blitzschnell per Taste", "keyboard",
-            h("button", { class: "xjm-btn", onclick: () => openCustomEditor(null, redraw) }, icon("plus", 16), "Eigenes Kürzel")),
+        pageHead("Tastenkürzel", "Plugins per Taste an- und ausschalten", "keyboard"),
         !hkOn ? h("div", { class: "xjm-restart" }, icon("keyboard", 18),
             h("div", {}, h("b", {}, "Tastenkürzel sind aus"), h("span", {}, "Das Plugin XJHotkeys ist deaktiviert.")),
             h("button", { class: "xjm-btn", onclick: () => { const p = plugins.XJHotkeys; if (p) { startPlugin(p); Settings.plugins.XJHotkeys.enabled = true; } redraw(); } }, "Einschalten")) : null,
-        h("p", { class: "xjm-hint" }, "Klicke auf ein Kürzel und drücke die neue Tastenkombination. Entf löscht es, Esc bricht ab."),
 
-        h("h3", { class: "xjm-section" }, "Deine eigenen Kürzel"),
-        custom.length ? h("div", { class: "xjm-hklist" }, custom.map(row))
-            : h("button", { class: "xjm-emptyadd", onclick: () => openCustomEditor(null, redraw) },
-                icon("plus", 22),
-                h("b", {}, "Erstes eigenes Kürzel anlegen"),
-                h("span", {}, "Plugin an/aus, Einstellung umschalten, Text einfügen, Link oder Kanal öffnen, CSS an/aus")),
+        h("div", { class: "xjm-hkadd" },
+            h("div", { class: "xjm-search" }, icon("search", 18), search),
+            candidates.length ? h("div", { class: "xjm-suggest" }, candidates.map(p =>
+                h("button", { class: "xjm-suggest-item", onclick: () => {
+                    const id = ensurePluginHotkey(p.name);
+                    hkState.q = "";
+                    redraw();
+                    setTimeout(() => startRecording(id, redraw), 30);
+                } },
+                    h("div", { class: "xjm-avatar small", style: `--h:${hueOf(p.name)}` }, p.name[0]),
+                    h("b", {}, p.name),
+                    canToggleLive(p.name) ? null : h("span", { class: "xjm-tag warn" }, "lädt neu"),
+                    h("span", { class: "xjm-suggest-plus" }, icon("plus", 16))))) : null),
 
-        h("h3", { class: "xjm-section" }, "Fertige Kürzel"),
-        h("div", { class: "xjm-hklist" }, builtin.map(row)),
+        h("p", { class: "xjm-hint" }, "Kürzel drücken = Plugin an/aus. Plugins mit „lädt neu“ brauchen einen Neustart – Discord lädt dann automatisch kurz neu. Tipp: Das Kürzel kannst du auch direkt im ⚙-Dialog jedes Plugins festlegen."),
+        pluginKeys.length ? h("div", { class: "xjm-hklist" }, pluginKeys.map(pluginRow))
+            : h("div", { class: "xjm-empty" }, "Noch keine Plugin-Kürzel. Such oben ein Plugin und füg es hinzu."),
+
+        h("h3", { class: "xjm-section" }, "Weitere Kürzel"),
+        others.length ? h("div", { class: "xjm-hklist" }, others.map(otherRow)) : null,
+        h("button", { class: "xjm-btn ghost", onclick: () => openCustomEditor(null, redraw) }, icon("plus", 16), "Text, Link, Kanal oder CSS per Taste"),
 
         h("h3", { class: "xjm-section" }, "Einstellungen"),
         h("div", { class: "xjm-list" },
-            optRow("Automatisch neu laden", "Wenn ein Plugin (z. B. ShowHiddenChannels) einen Neustart braucht, lädt Discord sich selbst neu", hk?.autoReload !== false, v => { hk.autoReload = v; }),
-            optRow("Meldung beim Benutzen anzeigen", "Kurzer Hinweis unten, was das Kürzel gerade gemacht hat", hk?.showToasts !== false, v => { hk.showToasts = v; }))
+            optRow("Automatisch neu laden", "Wenn ein Plugin einen Neustart braucht, lädt Discord sich selbst neu", hk?.autoReload !== false, v => { hk.autoReload = v; }),
+            optRow("Meldung beim Benutzen anzeigen", "Kurzer Hinweis unten, z. B. „ShowHiddenChannels aus“", hk?.showToasts !== false, v => { hk.showToasts = v; }))
     ];
 }
 

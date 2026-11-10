@@ -9,15 +9,16 @@ import { definePluginSettings } from "@api/Settings";
 import definePlugin, { OptionType } from "@utils/types";
 
 import { setStyle } from "../_xjShared";
-import { applyVisibilityStyles, comboFromEvent, getActions, getBinds, hotkeyToast, recording, startChannelWatcher, stopChannelWatcher } from "./actions";
+import { applyVisibilityStyles, comboFromEvent, getActions, getBinds, hotkeyToast, recording } from "./actions";
 
 const settings = definePluginSettings({
     binds: { type: OptionType.STRING, description: "Gespeicherte Kürzel", default: "", hidden: true },
     customPlugins: { type: OptionType.STRING, description: "Alte Liste (wird übernommen)", default: "", hidden: true },
     customHotkeys: { type: OptionType.STRING, description: "Eigene Kürzel", default: "", hidden: true },
     initialized: { type: OptionType.BOOLEAN, description: "Standard-Kürzel gesetzt", default: false, hidden: true },
-    hideHiddenChannels: { type: OptionType.BOOLEAN, description: "Versteckte Kanäle ausgeblendet", default: false, hidden: true },
-    hideLoggedMessages: { type: OptionType.BOOLEAN, description: "Gelöschte Nachrichten ausgeblendet", default: false, hidden: true },
+    hideHiddenChannels: { type: OptionType.BOOLEAN, description: "(alt)", default: false, hidden: true },
+    hideLoggedMessages: { type: OptionType.BOOLEAN, description: "(alt)", default: false, hidden: true },
+    migratedV3: { type: OptionType.BOOLEAN, description: "Übernahme erledigt", default: false, hidden: true },
     showToasts: { type: OptionType.BOOLEAN, description: "Kurze Meldung anzeigen, wenn ein Kürzel benutzt wird", default: true },
     autoReload: { type: OptionType.BOOLEAN, description: "Discord automatisch neu laden, wenn ein Plugin einen Neustart braucht", default: true }
 });
@@ -57,18 +58,16 @@ function onKey(e: KeyboardEvent) {
 
 export default definePlugin({
     name: "XJHotkeys",
-    description: "Tastenkürzel für Plugins, z. B. versteckte Kanäle oder gelöschte Nachrichten ein- und ausblenden. Einstellbar unter „Tastenkürzel“.",
+    description: "Schalte Plugins per Tastenkürzel an und aus (z. B. ShowHiddenChannels mit Strg + Shift + H). Einstellbar unter „Tastenkürzel“ oder im Dialog jedes Plugins.",
     authors: [{ name: "xImJxstinn", id: 0n }],
     enabledByDefault: true,
     settings,
     start() {
         applyVisibilityStyles();
-        startChannelWatcher();
         window.addEventListener("keydown", onKey, true);
     },
     stop() {
         window.removeEventListener("keydown", onKey, true);
-        stopChannelWatcher();
         setStyle("xj-hotkey-visibility", null);
     }
 });
