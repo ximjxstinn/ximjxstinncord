@@ -17,6 +17,10 @@ import * as Updater from "@utils/updater";
 import { React } from "@webpack/common";
 import gitHash from "~git-hash";
 
+import {
+    addCustomPlugin, canToggleLive, formatCombo, getActions, getBinds, getCustomPlugins,
+    recording, removeCustomPlugin, setBind
+} from "../xjHotkeys/actions";
 import { CSS } from "./style";
 
 // ---------------------------------------------------------------------------
@@ -57,7 +61,9 @@ const ICON: Record<string, string> = {
     trash: "M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z",
     close: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z",
     download: "M5 20h14v-2H5v2Zm14-9h-4V3H9v8H5l7 7 7-7Z",
-    upload: "M5 20h14v-2H5v2Zm4-4h6v-6h4l-7-7-7 7h4v6Z"
+    upload: "M5 20h14v-2H5v2Zm4-4h6v-6h4l-7-7-7 7h4v6Z",
+    keyboard: "M20 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-9 3h2v2h-2V8Zm0 3h2v2h-2v-2ZM8 8h2v2H8V8Zm0 3h2v2H8v-2Zm-1 2H5v-2h2v2Zm0-3H5V8h2v2Zm9 7H8v-2h8v2Zm0-4h-2v-2h2v2Zm0-3h-2V8h2v2Zm3 3h-2v-2h2v2Zm0-3h-2V8h2v2Z",
+    plus: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2Z"
 };
 function icon(name: string, size = 20) {
     const ns = "http://www.w3.org/2000/svg";
@@ -324,7 +330,8 @@ function pluginCard(p: any) {
             h("div", { class: "xjm-card-title" },
                 h("b", {}, p.name),
                 p.name.startsWith("XJ") ? h("span", { class: "xjm-tag own" }, "Eigenes") : null,
-                restartNeeded.has(p.name) ? h("span", { class: "xjm-tag warn" }, "Neustart") : null),
+                restartNeeded.has(p.name) ? h("span", { class: "xjm-tag warn" }, "Neustart") : null,
+                hotkeyFor(p.name) ? h("span", { class: "xjm-tag key", title: "Tastenkürzel" }, "⌨ " + formatCombo(hotkeyFor(p.name))) : null),
             h("p", {}, p.description ?? "")),
         h("div", { class: "xjm-card-side" },
             toggle(on, v => { setEnabled(p, v); redrawAll(); }, !!p.required),
@@ -490,6 +497,93 @@ function pageBackup() {
 }
 
 // ---------------------------------------------------------------------------
+// Seite: Tastenkürzel
+// ---------------------------------------------------------------------------
+function hotkeyFor(plugin: string) {
+    const binds = getBinds();
+    const a = getActions().find(x => x.plugin === plugin && binds[x.id]);
+    return a ? binds[a.id] : null;
+}
+
+function startRecording(id: string, redraw: () => void) {
+    recording.active = true;
+    const btn = [...document.querySelectorAll<HTMLElement>("[data-rec]")].find(b => b.dataset.rec === id);
+    if (btn) { btn.classList.add("rec"); btn.textContent = "Taste drücken …"; }
+    const onKey = (e: KeyboardEvent) => {
+        if (["Control", "Shift", "Alt", "Meta", "AltGraph"].includes(e.key)) return;
+        e.preventDefault(); e.stopPropagation();
+        window.removeEventListener("keydown", onKey, true);
+        recording.active = false;
+        if (e.key === "Escape") { redraw(); return; }
+        if (e.key === "Backspace" || e.key === "Delete") { setBind(id, null); redraw(); return; }
+        const parts: string[] = [];
+        if (e.ctrlKey) parts.push("ctrl");
+        if (e.altKey) parts.push("alt");
+        if (e.shiftKey) parts.push("shift");
+        const key = e.code?.startsWith("Key") ? e.code.slice(3).toLowerCase()
+            : e.code?.startsWith("Digit") ? e.code.slice(5) : e.key.toLowerCase();
+        parts.push(key === " " ? "space" : key);
+        if (parts.length === 1 && !/^f\d+$/.test(key)) {
+            toast("Bitte mit Strg, Alt oder Shift kombinieren (oder eine F-Taste nehmen)");
+            redraw();
+            return;
+        }
+        setBind(id, parts.join("+"));
+        toast("⌨ Kürzel gespeichert: " + formatCombo(parts.join("+")));
+        redraw();
+    };
+    window.addEventListener("keydown", onKey, true);
+}
+
+function pageHotkeys(redraw: () => void) {
+    const binds = getBinds();
+    const actions = getActions().filter(a => !a.plugin || plugins[a.plugin]);
+    const custom = new Set(getCustomPlugins());
+    const hk = Settings.plugins.XJHotkeys as any;
+    const hkOn = isPluginEnabled("XJHotkeys");
+
+    const row = (a: any) => {
+        const pluginOn = !a.plugin || isPluginEnabled(a.plugin);
+        const combo = binds[a.id];
+        return h("div", { class: "xjm-hk" + (combo ? " set" : "") },
+            h("div", { class: "xjm-hk-icon" }, icon(a.id.startsWith("toggle:") ? "plug" : "keyboard", 18)),
+            h("div", { class: "xjm-opt-text" },
+                h("b", {}, a.label),
+                h("span", {}, a.description),
+                a.plugin ? h("div", { class: "xjm-hk-meta" },
+                    h("span", { class: "xjm-tag" + (pluginOn ? " ok" : "") }, a.plugin + (pluginOn ? "" : " · aus"))) : null),
+            h("div", { class: "xjm-hk-side" },
+                h("button", { class: "xjm-key" + (combo ? "" : " empty"), "data-rec": a.id, title: "Klicken und neue Taste drücken (Entf = löschen, Esc = abbrechen)",
+                    onclick: () => startRecording(a.id, redraw) }, combo ? formatCombo(combo) : "Taste festlegen"),
+                combo ? h("button", { class: "xjm-iconbtn", title: "Kürzel entfernen", onclick: () => { setBind(a.id, null); redraw(); } }, icon("close", 15)) : null,
+                a.id.startsWith("toggle:") ? h("button", { class: "xjm-iconbtn", title: "Aus der Liste entfernen", onclick: () => { removeCustomPlugin(a.plugin); redraw(); } }, icon("trash", 15)) : null));
+    };
+
+    const candidates = Object.values(plugins)
+        .filter((p: any) => !p.hidden && !p.required && canToggleLive(p.name) && !custom.has(p.name) && !["XJDesign", "XJTwitchLive", "XJStreamClock", "XJHotkeys", "XJMenu"].includes(p.name))
+        .map((p: any) => p.name).sort();
+    const sel = h("select", { class: "xjm-input" },
+        h("option", { value: "" }, "Plugin auswählen …"),
+        candidates.map(n => h("option", { value: n }, n))) as HTMLSelectElement;
+
+    return [
+        pageHead("Tastenkürzel", "Plugins blitzschnell per Taste steuern – ohne Menü und ohne Neustart", "keyboard"),
+        !hkOn ? h("div", { class: "xjm-restart" }, icon("keyboard", 18),
+            h("div", {}, h("b", {}, "Tastenkürzel sind aus"), h("span", {}, "Das Plugin XJHotkeys ist deaktiviert.")),
+            h("button", { class: "xjm-btn", onclick: () => { const p = plugins.XJHotkeys; if (p) { startPlugin(p); Settings.plugins.XJHotkeys.enabled = true; } redraw(); } }, "Einschalten")) : null,
+        h("p", { class: "xjm-hint" }, "Klicke auf ein Kürzel und drücke die neue Tastenkombination. Entf löscht es, Esc bricht ab."),
+        h("div", { class: "xjm-hklist" }, actions.map(row)),
+        h("h3", { class: "xjm-section" }, "Plugin an/aus per Taste"),
+        h("div", { class: "xjm-addrow" }, sel,
+            h("button", { class: "xjm-btn", onclick: () => { if (sel.value) { addCustomPlugin(sel.value); redraw(); } } }, icon("plus", 16), "Hinzufügen")),
+        h("p", { class: "xjm-hint" }, "Hier erscheinen nur Plugins, die sich ohne Neustart umschalten lassen."),
+        h("h3", { class: "xjm-section" }, "Einstellungen"),
+        h("div", { class: "xjm-list" },
+            optRow("Meldung beim Benutzen anzeigen", "Kurzer Hinweis unten, was das Kürzel gerade gemacht hat", hk?.showToasts !== false, v => { hk.showToasts = v; }))
+    ];
+}
+
+// ---------------------------------------------------------------------------
 // Einbindung in die Discord-Einstellungen
 // ---------------------------------------------------------------------------
 const RENDER: Record<string, (redraw: () => void) => Kid> = {
@@ -497,7 +591,8 @@ const RENDER: Record<string, (redraw: () => void) => Kid> = {
     plugins: redraw => pagePlugins(redraw),
     themes: redraw => pageThemes(redraw),
     updater: redraw => pageUpdater(redraw),
-    backup: () => pageBackup()
+    backup: () => pageBackup(),
+    hotkeys: redraw => pageHotkeys(redraw)
 };
 
 function mount(el: HTMLElement, page: string) {
@@ -534,5 +629,9 @@ export const XJPages = {
     plugins: makePage("plugins"),
     themes: makePage("themes"),
     updater: makePage("updater"),
-    backup: makePage("backup")
+    backup: makePage("backup"),
+    hotkeys: makePage("hotkeys"),
+    /** Icon für den Eintrag in der Seitenleiste */
+    hotkeysIcon: (props: any) => React.createElement("svg", { viewBox: "0 0 24 24", width: 20, height: 20, ...props },
+        React.createElement("path", { fill: "currentColor", d: ICON.keyboard }))
 };

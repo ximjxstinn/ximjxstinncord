@@ -28,12 +28,17 @@ const edits = [
             ["Component: UpdaterTab,", "Component: XJPages.updater,"],
             ["Component: BackupAndRestoreTab,", "Component: XJPages.backup,"]
         ],
+        // „Cloud“ wird durch die eigene Seite „Tastenkürzel“ ersetzt
+        regex: [[
+            /buildEntry\(\{\s*key: "vencord_cloud",[\s\S]*?\}\)/,
+            'buildEntry({ key: "xj_hotkeys", title: "Tastenkürzel", panelTitle: "Tastenkürzel", Component: XJPages.hotkeys, Icon: XJPages.hotkeysIcon })'
+        ]],
         prepend: 'import { XJPages } from "../../userplugins/xjMenu/pages";\n'
     }
 ];
 
 let warnings = 0;
-for (const { file, replace, prepend } of edits) {
+for (const { file, replace, prepend, regex } of edits) {
     const path = join(root, file);
     let src;
     try { src = readFileSync(path, "utf8"); } catch {
@@ -49,6 +54,15 @@ for (const { file, replace, prepend } of edits) {
         }
         src = src.split(from).join(to);
         console.log(`✔ ${file}: ${from} → ${to}`);
+    }
+    for (const [re, to] of regex ?? []) {
+        if (!re.test(src)) {
+            console.warn(`⚠ ${file}: Muster ${re} nicht gefunden`);
+            warnings++;
+            continue;
+        }
+        src = src.replace(re, to);
+        console.log(`✔ ${file}: ${re} ersetzt`);
     }
     if (typeof prepend === "string" && !src.includes(prepend.trim())) src = prepend + src;
     writeFileSync(path, src);

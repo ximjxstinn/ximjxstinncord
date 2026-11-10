@@ -194,6 +194,33 @@ select.xjm-input { width: auto; min-width: 160px; }
 .xjm-hint { margin: 0; font-size: 13px; color: var(--mu); }
 .xjm-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* ---------- Tastenkürzel ---------- */
+.xjm-hklist { display: flex; flex-direction: column; gap: 8px; }
+.xjm-hk {
+    display: flex; align-items: center; gap: 14px; padding: 13px 14px; border-radius: 16px;
+    background: var(--glass); border: 1px solid var(--line); transition: border-color .15s, background .15s;
+}
+.xjm-hk.set { border-color: color-mix(in srgb, var(--a) 45%, transparent); }
+.xjm-hk:hover { background: var(--glass2); }
+.xjm-hk-icon { width: 38px; height: 38px; flex: none; border-radius: 12px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--a), var(--a2)); }
+.xjm-hk .xjm-opt-text { flex: 1; }
+.xjm-hk-meta { margin-top: 5px; }
+.xjm-hk-side { display: flex; align-items: center; gap: 6px; }
+.xjm-key {
+    min-width: 128px; padding: 9px 14px; border-radius: 11px; cursor: pointer;
+    font: 700 13px Consolas, "Cascadia Code", monospace; letter-spacing: .02em; color: var(--hd);
+    background: rgba(0,0,0,.3); border: 1px solid color-mix(in srgb, var(--a) 45%, transparent);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.35); transition: .15s;
+}
+.xjm-key:hover { border-color: var(--a); }
+.xjm-key.empty { color: var(--mu); font-family: inherit; font-weight: 600; border-style: dashed; box-shadow: none; }
+.xjm-key.rec { color: #fff; border-color: var(--a); background: color-mix(in srgb, var(--a) 30%, transparent); animation: xjm-pulse 1s infinite; }
+@keyframes xjm-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 30%, transparent); } }
+.xjm-addrow { display: flex; gap: 8px; }
+.xjm-addrow select { flex: 1; }
+.xjm-tag.ok { background: rgba(61, 220, 132, .15); color: #7ff0b0; }
+.xjm-tag.key { background: rgba(0,0,0,.3); color: var(--hd); font-family: Consolas, monospace; border: 1px solid var(--line); }
+
 /* ---------- Neustart-Hinweis ---------- */
 .xjm-restart {
     display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;

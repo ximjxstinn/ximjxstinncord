@@ -11,12 +11,13 @@ xImJxstinnCord basiert auf [Vencord](https://github.com/Vendicated/Vencord) (© 
 
 ## Was drin ist
 - Alle Vencord-Plugins (über 170), zum Beispiel ShowHiddenChannels, RoleColorEverywhere, MessageLogger und Translate
-- Ein **komplett eigenes Menü** in den Discord-Einstellungen (Übersicht, Plugins, Themes, Updates, Backup) im xImJxstinnCord-Design – nicht im Vencord-Stil (`userplugins/xjMenu/`)
+- Ein **komplett eigenes Menü** in den Discord-Einstellungen (Übersicht, Plugins, Themes, Updates, Tastenkürzel, Backup) im xImJxstinnCord-Design – nicht im Vencord-Stil (`userplugins/xjMenu/`)
 - Deine eigenen Plugins aus `userplugins/`:
   | Plugin | Funktion |
   |---|---|
   | **XJTwitchLive** | LIVE-Abzeichen mit Laufzeit und Zuschauern deines Twitch-Kanals |
-  | **XJStreamerBlur** | Verwischt Chats und DMs beim Streamen (Strg + Shift + B) |
+  | **XJStreamerBlur** | Verwischt Chats und DMs beim Streamen |
+  | **XJHotkeys** | Tastenkürzel für Plugins, z. B. versteckte Kanäle (Strg + Shift + H), gelöschte Nachrichten (Strg + Shift + L), Streamer-Blur (Strg + Shift + B) – alles frei einstellbar |
   | **XJStreamClock** | Verschiebbare Uhr mit Stoppuhr |
   | **XJDesign** | xImJxstinn-Designer mit Presets, Akzentfarbe, Hintergrund, Schrift und Rundung |
   | **XJStyle** | Modernes Design fürs Menü: leuchtende Plugin-Karten, Farbverläufe, runde Ecken (standardmäßig an) |
