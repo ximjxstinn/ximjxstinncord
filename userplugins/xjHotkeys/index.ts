@@ -9,7 +9,7 @@ import { definePluginSettings } from "@api/Settings";
 import definePlugin, { OptionType } from "@utils/types";
 
 import { setStyle } from "../_xjShared";
-import { applyVisibilityStyles, comboFromEvent, getActions, getBinds, hotkeyToast, recording } from "./actions";
+import { applyVisibilityStyles, comboFromEvent, getActions, getBinds, hotkeyToast, recording, startChannelWatcher, stopChannelWatcher } from "./actions";
 
 const settings = definePluginSettings({
     binds: { type: OptionType.STRING, description: "Gespeicherte Kürzel", default: "", hidden: true },
@@ -63,10 +63,12 @@ export default definePlugin({
     settings,
     start() {
         applyVisibilityStyles();
+        startChannelWatcher();
         window.addEventListener("keydown", onKey, true);
     },
     stop() {
         window.removeEventListener("keydown", onKey, true);
+        stopChannelWatcher();
         setStyle("xj-hotkey-visibility", null);
     }
 });

@@ -9,7 +9,7 @@ import {
 } from "@api/PluginManager";
 import { Settings } from "@api/Settings";
 import { insertTextIntoChatInputBox } from "@utils/discord";
-import { NavigationRouter } from "@webpack/common";
+import { ChannelStore, NavigationRouter } from "@webpack/common";
 
 import { setStyle } from "../_xjShared";
 import { toggleStreamerBlur } from "../xjStreamerBlur";
@@ -123,11 +123,52 @@ export function togglePlugin(name: string): string {
 // ---------------------------------------------------------------------------
 // Zustände der Ein-/Ausblenden-Aktionen (bleiben über Neustarts erhalten)
 // ---------------------------------------------------------------------------
+// Versteckte Kanäle: ShowHiddenChannels selbst fragen, welche Kanäle versteckt sind,
+// und genau diese Einträge in der Kanalliste markieren.
+const HIDE_CLASS = "xj-shc-hide";
+
+export function markHiddenChannels() {
+    const active = !!store()?.hideHiddenChannels;
+    const shc = plugins.ShowHiddenChannels as any;
+    const canCheck = active && isPluginEnabled("ShowHiddenChannels") && typeof shc?.isHiddenChannel === "function";
+    for (const el of document.querySelectorAll<HTMLElement>('[data-list-item-id^="channels___"]')) {
+        const row = (el.closest("li") ?? el) as HTMLElement;
+        let hidden = false;
+        if (canCheck) {
+            const id = el.getAttribute("data-list-item-id")!.slice("channels___".length);
+            try {
+                const ch = ChannelStore.getChannel(id);
+                hidden = !!ch && !!shc.isHiddenChannel(ch);
+            } catch { }
+        }
+        row.classList.toggle(HIDE_CLASS, hidden);
+    }
+}
+
+let observer: MutationObserver | null = null;
+let pending = false;
+/** Beobachtet die Kanalliste, damit auch neu angezeigte Kanäle sofort ausgeblendet werden */
+export function startChannelWatcher() {
+    if (observer) return;
+    observer = new MutationObserver(() => {
+        if (pending || !store()?.hideHiddenChannels) return;
+        pending = true;
+        setTimeout(() => { pending = false; markHiddenChannels(); }, 40);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    markHiddenChannels();
+}
+export function stopChannelWatcher() {
+    observer?.disconnect();
+    observer = null;
+    document.querySelectorAll("." + HIDE_CLASS).forEach(e => e.classList.remove(HIDE_CLASS));
+}
+
 export function applyVisibilityStyles() {
     const s = store();
     const css: string[] = [];
     if (s?.hideHiddenChannels)
-        css.push(`li:has(.vc-shc-hidden-channel-icon), [class*="containerDefault"]:has(.vc-shc-hidden-channel-icon) { display: none !important; }`);
+        css.push(`.${HIDE_CLASS}, li:has(.vc-shc-hidden-channel-icon) { display: none !important; }`);
     if (s?.hideLoggedMessages)
         css.push(`.messagelogger-deleted, .messagelogger-edited, .messagelogger-edit-marker { display: none !important; }`);
     for (const c of getCustomHotkeys()) if (c.type === "css" && c.on && c.css) css.push(c.css);
@@ -138,6 +179,7 @@ function flip(key: string) {
     const s = store();
     s[key] = !s[key];
     applyVisibilityStyles();
+    markHiddenChannels();
     return !s[key];
 }
 
