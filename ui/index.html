@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>xImJxstinnCord Installer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0b0b10;--panel:#13131b;--panel2:#1a1a25;--line:#262636;--text:#ececf4;--muted:#9a9ab0;--accent:#9146ff;--accent2:#b07bff;--ok:#3ddc84;--bad:#ff5d6c;--warn:#ffb84d}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+body{min-height:100vh;background:radial-gradient(900px 500px at 85% -10%,rgba(145,70,255,.25),transparent 70%),var(--bg)}
+button{font:inherit;color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:28px 22px 40px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.logo{width:50px;height:50px;border-radius:15px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:800;font-size:22px;box-shadow:0 6px 24px rgba(145,70,255,.45)}
+h1{margin:0;font-size:23px}
+h1 small{display:block;font-size:13px;color:var(--muted);font-weight:400}
+.pill{margin-left:auto;padding:6px 12px;border-radius:99px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12.5px}
+.pill b{color:var(--text)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:8px}
+.card h2 .n{width:22px;height:22px;border-radius:7px;background:var(--accent);display:grid;place-items:center;font-size:12px}
+.sub{margin:0 0 14px;color:var(--muted);font-size:12.5px}
+.installs{display:grid;gap:8px}
+.inst{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);cursor:pointer}
+.inst input{accent-color:var(--accent);width:17px;height:17px}
+.inst .meta{color:var(--muted);font-size:12px}
+.badge{margin-left:auto;font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.on{color:var(--ok);border-color:rgba(61,220,132,.4)}
+.badge.other{color:var(--warn);border-color:rgba(255,184,77,.4)}
+.empty{padding:14px;border-radius:12px;background:var(--panel2);color:var(--muted)}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:600px){.feat{grid-template-columns:1fr}}
+.feat div{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px}
+.feat b{display:block;font-size:13.5px;margin-bottom:2px}
+.feat span{color:var(--muted)}
+.btn{border-radius:11px;padding:11px 16px;font-weight:600;cursor:pointer;background:var(--panel2);border:1px solid var(--line)}
+.btn:hover{filter:brightness(1.12)}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:0;width:100%;font-size:15px;padding:13px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:wait}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.check{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--muted);font-size:13px}
+.check input{accent-color:var(--accent)}
+.log{margin-top:12px;background:#08080c;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:12.5px/1.6 Consolas,monospace;max-height:200px;overflow:auto;white-space:pre-wrap;color:#c9c9d8}
+.log:empty::before{content:"Hier erscheint der Fortschritt …";color:#55556a}
+kbd{padding:1px 6px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);font:12px Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">X</div>
+    <h1>xImJxstinnCord<small>Dein eigener Discord-Mod – ohne Vencord</small></h1>
+    <div class="pill" id="status">Lade …</div>
+  </header>
+
+  <section class="card">
+    <h2><span class="n">1</span>Discord auswählen</h2>
+    <p class="sub">Wo soll xImJxstinnCord installiert werden?</p>
+    <div class="installs" id="installs"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">2</span>Das ist drin</h2>
+    <p class="sub">Alles stellst du direkt in Discord ein: <b>Benutzereinstellungen → xImJxstinnCord</b></p>
+    <div class="feat">
+      <div><b>⚙️ Menü in Discord</b><span>Eigener Bereich in den Discord-Einstellungen – wie bei Vencord, inkl. Backup & Restore</span></div>
+      <div><b>🧩 Plugins</b><span>13 eingebaute Plugins (u. a. ShowHiddenChannels, RoleColorEverywhere) + eigene</span></div>
+      <div><b>🎨 Themes</b><span>Lokale Themes, Online-Themes, Designer und eigenes CSS – alles live</span></div>
+      <div><b>⬆️ Auto-Update</b><span>Neue Versionen kommen automatisch von GitHub</span></div>
+      <div><b>🔴 Streamer-Tools</b><span>Twitch-Live-Anzeige, Streamer-Blur, Stream-Uhr</span></div>
+      <div><b>🚫 Komfort</b><span>Werbung weg, Chat-Buttons ausblenden, Fenster-Tools</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">3</span>Installieren</h2>
+    <p class="sub">Discord wird kurz geschlossen und danach mit xImJxstinnCord gestartet. Ein vorhandenes Vencord wird dabei ersetzt.</p>
+    <button class="btn primary" id="btnInstall">xImJxstinnCord installieren</button>
+    <div class="actions">
+      <button class="btn danger" id="btnUninstall">Deinstallieren</button>
+      <button class="btn" id="btnFolder">Einstellungs-Ordner öffnen</button>
+    </div>
+    <label class="check"><input type="checkbox" id="restart" checked> Discord danach starten</label>
+    <div class="log" id="log"></div>
+  </section>
+</div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = id => document.getElementById(id);
+let installs = [];
+
+// App-Fenster (WebView2): window.xjCall – Browser-Modus: fetch
+const pending = {};
+window.__xjDone = (id, res) => { pending[id]?.(res); delete pending[id]; };
+let seq = 0;
+async function call(path, body = {}) {
+  const action = path.replace("/api/", "");
+  if (typeof window.xjCall === "function") {
+    const id = "c" + (++seq);
+    const p = new Promise((res, rej) => {
+      pending[id] = res;
+      // Sicherheitsnetz: nach 2 Minuten nicht mehr warten, damit die Knöpfe wieder gehen
+      setTimeout(() => { if (pending[id]) { delete pending[id]; rej(new Error("Keine Antwort vom Installer (Zeitüberschreitung)")); } }, 120000);
+    });
+    await window.xjCall(id, action, body);
+    return p;
+  }
+  const r = await fetch(path, { method: "POST", headers: { "X-Token": TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(r.status + " " + r.statusText);
+  return r.json();
+}
+function log(lines, clear) {
+  const el = $("log"); if (clear) el.textContent = "";
+  el.textContent += (el.textContent ? "\n" : "") + [].concat(lines).join("\n");
+  el.scrollTop = el.scrollHeight;
+}
+const selectedBranches = () => [...document.querySelectorAll("#installs input:checked")].map(i => i.value);
+const busy = on => ["btnInstall", "btnUninstall"].forEach(id => $(id).disabled = on);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderInstalls() {
+  const prev = new Set(selectedBranches());
+  if (!installs.length) { $("installs").innerHTML = `<div class="empty">Keine Discord-Installation gefunden. Installiere Discord von discord.com und starte den Installer neu.</div>`; return; }
+  $("installs").innerHTML = installs.map((d, i) => {
+    const badge = d.other ? `<span class="badge other">${esc(d.other)} aktiv</span>`
+      : d.patched ? `<span class="badge on">● xImJxstinnCord aktiv</span>` : `<span class="badge">Original</span>`;
+    const chk = prev.size ? prev.has(d.branch) : i === 0;
+    return `<label class="inst"><input type="checkbox" value="${esc(d.branch)}" ${chk ? "checked" : ""}>
+      <div><b>${esc(d.name)}</b><div class="meta">Version ${esc(d.version)}</div></div>${badge}</label>`;
+  }).join("");
+}
+
+async function refresh() {
+  const s = await call("/api/state");
+  installs = s.discords || [];
+  renderInstalls();
+  $("status").innerHTML = s.installed ? `Installiert: <b>v${esc(s.installed)}</b>` : `Neu: <b>v${esc(s.bundled)}</b>`;
+}
+
+$("btnInstall").onclick = async () => {
+  const br = selectedBranches(); if (!br.length) return log("Bitte wähle oben mindestens eine Discord-Installation aus.", true);
+  busy(true); log("Installiere … (Discord wird kurz geschlossen)", true);
+  try { log((await call("/api/install", { branches: br, restart: $("restart").checked })).log); } catch (e) { log("❌ " + e.message); }
+  finally { busy(false); }
+  refresh().catch(() => {});
+};
+$("btnUninstall").onclick = async () => {
+  const br = selectedBranches(); if (!br.length) return log("Bitte wähle oben mindestens eine Discord-Installation aus.", true);
+  if (!confirm("xImJxstinnCord aus den ausgewählten Discord-Versionen entfernen?")) return;
+  const settings = confirm("Auch deine Einstellungen (Design, Twitch-Name usw.) löschen?\n\nOK = löschen, Abbrechen = behalten");
+  busy(true); log("Entferne …", true);
+  try { log((await call("/api/uninstall", { branches: br, settings })).log); } catch (e) { log("❌ " + e.message); }
+  finally { busy(false); }
+  refresh().catch(() => {});
+};
+$("btnFolder").onclick = () => call("/api/open");
+
+if (typeof window.xjCall !== "function") setInterval(() => call("/api/ping").catch(() => {}), 10000);
+refresh().catch(e => log("❌ Verbindung zum Installer verloren: " + e.message, true));
+</script>
+</body>
+</html>

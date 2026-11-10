@@ -1,0 +1,27 @@
+/**
+ * @name xImJxstinn Glow
+ * @author xImJxstinn
+ * @version 1.0.0
+ * @description Beispiel-Theme: weiche Leucht-Effekte auf Buttons, Eingabefeld und ausgewählten Kanälen. Funktioniert gut zusammen mit dem Designer.
+ */
+
+/* Eingabefeld leuchtet leicht in der Akzentfarbe */
+[class*="channelTextArea"] [class*="scrollableContainer"] {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--xj-accent, #9146ff) 35%, transparent),
+                0 0 18px color-mix(in srgb, var(--xj-accent, #9146ff) 18%, transparent);
+}
+
+/* Ausgewählter Kanal mit Akzent-Leiste */
+[class*="containerDefault"] [class*="modeSelected"] {
+    box-shadow: inset 3px 0 0 var(--xj-accent, #9146ff);
+}
+
+/* Buttons mit Glow beim Drüberfahren */
+button[class*="colorBrand"]:hover {
+    box-shadow: 0 0 16px color-mix(in srgb, var(--xj-accent, #9146ff) 55%, transparent);
+}
+
+/* Avatare etwas runder in Popups */
+[class*="userPopoutOuter"] [class*="avatar"] img {
+    border-radius: 50%;
+}
