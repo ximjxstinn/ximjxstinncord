@@ -216,8 +216,28 @@ select.xjm-input { width: auto; min-width: 160px; }
 .xjm-key.empty { color: var(--mu); font-family: inherit; font-weight: 600; border-style: dashed; box-shadow: none; }
 .xjm-key.rec { color: #fff; border-color: var(--a); background: color-mix(in srgb, var(--a) 30%, transparent); animation: xjm-pulse 1s infinite; }
 @keyframes xjm-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 30%, transparent); } }
-.xjm-addrow { display: flex; gap: 8px; }
-.xjm-addrow select { flex: 1; }
+.xjm-hk.custom .xjm-hk-icon { background: linear-gradient(135deg, var(--a2), var(--a)); }
+.xjm-hk-icon.big { width: 46px; height: 46px; border-radius: 14px; }
+.xjm-emptyadd {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; border-radius: 18px; cursor: pointer;
+    background: var(--glass); border: 2px dashed color-mix(in srgb, var(--a) 45%, transparent); color: var(--tx); text-align: center;
+    transition: border-color .15s, background .15s, transform .15s;
+}
+.xjm-emptyadd:hover { border-color: var(--a); background: var(--glass2); transform: translateY(-2px); }
+.xjm-emptyadd svg { color: var(--a); }
+.xjm-emptyadd b { font-size: 15px; color: var(--hd); }
+.xjm-emptyadd span { font-size: 12.5px; color: var(--mu); }
+.xjm-typegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 8px; }
+.xjm-typebtn {
+    padding: 10px 8px; border-radius: 12px; cursor: pointer; font-size: 12.5px; font-weight: 700; line-height: 1.25;
+    background: var(--glass); border: 1px solid var(--line); color: var(--mu); transition: .15s;
+}
+.xjm-typebtn:hover { color: var(--hd); border-color: color-mix(in srgb, var(--a) 50%, transparent); }
+.xjm-typebtn.sel { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--a), var(--a2)); }
+.xjm-field { display: flex; flex-direction: column; gap: 6px; padding: 10px 2px; }
+.xjm-field b { font-size: 13px; color: var(--hd); }
+.xjm-field span { font-size: 12px; color: var(--mu); }
+.xjm-row-actions.end { justify-content: flex-end; margin-top: 6px; }
 .xjm-tag.ok { background: rgba(61, 220, 132, .15); color: #7ff0b0; }
 .xjm-tag.key { background: rgba(0,0,0,.3); color: var(--hd); font-family: Consolas, monospace; border: 1px solid var(--line); }
 

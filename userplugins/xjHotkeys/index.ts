@@ -13,11 +13,13 @@ import { applyVisibilityStyles, comboFromEvent, getActions, getBinds, hotkeyToas
 
 const settings = definePluginSettings({
     binds: { type: OptionType.STRING, description: "Gespeicherte Kürzel", default: "", hidden: true },
-    customPlugins: { type: OptionType.STRING, description: "Plugins mit eigenem An/Aus-Kürzel", default: "", hidden: true },
+    customPlugins: { type: OptionType.STRING, description: "Alte Liste (wird übernommen)", default: "", hidden: true },
+    customHotkeys: { type: OptionType.STRING, description: "Eigene Kürzel", default: "", hidden: true },
     initialized: { type: OptionType.BOOLEAN, description: "Standard-Kürzel gesetzt", default: false, hidden: true },
     hideHiddenChannels: { type: OptionType.BOOLEAN, description: "Versteckte Kanäle ausgeblendet", default: false, hidden: true },
     hideLoggedMessages: { type: OptionType.BOOLEAN, description: "Gelöschte Nachrichten ausgeblendet", default: false, hidden: true },
-    showToasts: { type: OptionType.BOOLEAN, description: "Kurze Meldung anzeigen, wenn ein Kürzel benutzt wird", default: true }
+    showToasts: { type: OptionType.BOOLEAN, description: "Kurze Meldung anzeigen, wenn ein Kürzel benutzt wird", default: true },
+    autoReload: { type: OptionType.BOOLEAN, description: "Discord automatisch neu laden, wenn ein Plugin einen Neustart braucht", default: true }
 });
 
 function isTyping(e: KeyboardEvent) {

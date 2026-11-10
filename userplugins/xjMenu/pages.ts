@@ -18,8 +18,8 @@ import { React } from "@webpack/common";
 import gitHash from "~git-hash";
 
 import {
-    addCustomPlugin, canToggleLive, formatCombo, getActions, getBinds, getCustomPlugins,
-    recording, removeCustomPlugin, setBind
+    autoReloadEnabled, channelPath, CUSTOM_TYPES, CustomHotkey, deleteCustomHotkey, formatCombo, getActions,
+    getBinds, newCustomId, recording, saveCustomHotkey, scheduleReload, setBind
 } from "../xjHotkeys/actions";
 import { CSS } from "./style";
 
@@ -135,11 +135,11 @@ function setEnabled(p: any, on: boolean) {
     if (on) {
         const { restartNeeded: depsNeedRestart, failures } = startDependenciesRecursive(p);
         if (failures.length) { toast("Abhängigkeiten konnten nicht gestartet werden: " + failures.join(", ")); return; }
-        if (depsNeedRestart) { st.enabled = true; restartNeeded.add(p.name); return; }
+        if (depsNeedRestart) { st.enabled = true; needsReload(p.name, on); return; }
     }
     if (pluginRequiresRestart(p)) {
         st.enabled = on;
-        restartNeeded.add(p.name);
+        needsReload(p.name, on);
         return;
     }
     if (was && !p.started) { st.enabled = false; return; }
@@ -151,6 +151,12 @@ function setEnabled(p: any, on: boolean) {
         return;
     }
     st.enabled = on;
+}
+
+/** Plugin braucht Neustart: automatisch neu laden oder Hinweis anzeigen */
+function needsReload(name: string, on: boolean) {
+    if (autoReloadEnabled()) scheduleReload(`${name} ${on ? "an" : "aus"}`);
+    else restartNeeded.add(name);
 }
 
 // ---------------------------------------------------------------------------
@@ -171,7 +177,7 @@ function openSettings(p: any) {
     const set = (key: string, def: any, v: any) => {
         store[key] = v;
         try { def.onChange?.(v); } catch (e) { console.error(e); }
-        if (def.restartNeeded) restartNeeded.add(p.name);
+        if (def.restartNeeded) needsReload(p.name, true);
         draw();
     };
 
@@ -233,7 +239,7 @@ function openSettings(p: any) {
                     p.required ? h("span", {}, "Wird für xImJxstinnCord benötigt") : null),
                 toggle(isPluginEnabled(p.name), v => { setEnabled(p, v); draw(); }, !!p.required)),
             rows.length ? rows : h("div", { class: "xjm-empty small" }, "Dieses Plugin hat keine weiteren Einstellungen."),
-            advanced ? h("button", { class: "xjm-btn ghost", onclick: () => { close(); openPluginModal(p, n => restartNeeded.add(n)); } },
+            advanced ? h("button", { class: "xjm-btn ghost", onclick: () => { close(); openPluginModal(p, n => needsReload(n, true)); } },
                 icon("gear", 16), "Erweiterte Einstellungen") : null,
             p.authors?.length ? h("div", { class: "xjm-authors" }, "von " + p.authors.map((a: any) => a.name).join(", ")) : null
         ];
@@ -535,18 +541,95 @@ function startRecording(id: string, redraw: () => void) {
     window.addEventListener("keydown", onKey, true);
 }
 
+function openCustomEditor(existing: CustomHotkey | null, redraw: () => void) {
+    const c: CustomHotkey = existing ? { ...existing } : { id: newCustomId(), type: "text", label: "" };
+    const ov = h("div", { class: "xjm-overlay" });
+    const close = () => { ov.remove(); document.removeEventListener("keydown", esc, true); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !recording.active) { e.stopPropagation(); close(); } };
+    document.addEventListener("keydown", esc, true);
+    ov.addEventListener("mousedown", e => { if (e.target === ov) close(); });
+    const body = h("div", { class: "xjm-dialog-body" });
+    const stop = (e: any) => e.stopPropagation();
+
+    const allPlugins = Object.values(plugins).filter((p: any) => !p.hidden && !p.required).map((p: any) => p.name).sort();
+    const boolSettings = (name?: string) => Object.entries((name && (plugins[name]?.settings?.def ?? plugins[name]?.options)) || {})
+        .filter(([k, d]: [string, any]) => k !== "enabled" && d.type === 3 && !d.hidden).map(([k, d]: [string, any]) => ({ key: k, desc: d.description ?? "" }));
+
+    const field = (label: string, ctl: HTMLElement, hint?: string) =>
+        h("div", { class: "xjm-field" }, h("b", {}, label), ctl, hint ? h("span", {}, hint) : null);
+
+    const draw = () => {
+        const type = CUSTOM_TYPES.find(t => t.type === c.type)!;
+        const fields: Kid[] = [];
+        if (c.type === "plugin" || c.type === "setting") {
+            fields.push(field("Plugin", h("select", { class: "xjm-input", onchange: (e: any) => { c.plugin = e.target.value; c.setting = undefined; draw(); } },
+                h("option", { value: "" }, "Plugin auswählen …"),
+                allPlugins.map(n => h("option", { value: n, selected: c.plugin === n }, n)))));
+        }
+        if (c.type === "setting" && c.plugin) {
+            const opts = boolSettings(c.plugin);
+            fields.push(opts.length
+                ? field("Einstellung", h("select", { class: "xjm-input", onchange: (e: any) => { c.setting = e.target.value; } },
+                    h("option", { value: "" }, "Einstellung auswählen …"),
+                    opts.map(o => h("option", { value: o.key, selected: c.setting === o.key }, o.key + (o.desc ? " – " + o.desc.slice(0, 60) : "")))))
+                : h("div", { class: "xjm-empty small" }, "Dieses Plugin hat keine Ja/Nein-Einstellungen."));
+        }
+        if (c.type === "text") fields.push(field("Text", h("textarea", { class: "xjm-input", rows: 3, value: c.text ?? "", placeholder: "z. B. Ich bin jetzt live: https://twitch.tv/…", onkeydown: stop, oninput: (e: any) => { c.text = e.target.value; } })));
+        if (c.type === "link") fields.push(field("Link", h("input", { class: "xjm-input", value: c.url ?? "", placeholder: "https://…", onkeydown: stop, oninput: (e: any) => { c.url = e.target.value; } })));
+        if (c.type === "channel") fields.push(field("Kanal-Link", h("input", { class: "xjm-input", value: c.url ?? "", placeholder: "https://discord.com/channels/…", onkeydown: stop, oninput: (e: any) => { c.url = e.target.value; } }), "In Discord: Rechtsklick auf den Kanal → „Link kopieren“"));
+        if (c.type === "css") fields.push(field("CSS", h("textarea", { class: "xjm-input code", rows: 6, value: c.css ?? "", placeholder: "/* z. B. */\n[class*=\"membersWrap\"] { display: none !important; }", onkeydown: stop, oninput: (e: any) => { c.css = e.target.value; } })));
+
+        const save = () => {
+            if ((c.type === "plugin" || c.type === "setting") && !c.plugin) return toast("Bitte ein Plugin auswählen");
+            if (c.type === "setting" && !c.setting) return toast("Bitte eine Einstellung auswählen");
+            if (c.type === "text" && !c.text?.trim()) return toast("Bitte einen Text eingeben");
+            if (c.type === "link" && !/^https?:\/\//i.test(c.url ?? "")) return toast("Der Link muss mit https:// beginnen");
+            if (c.type === "channel" && !channelPath(c.url)) return toast("Das ist kein Discord-Kanal-Link");
+            if (c.type === "css" && !c.css?.trim()) return toast("Bitte CSS eingeben");
+            if (!c.label.trim()) {
+                c.label = c.type === "plugin" ? `${c.plugin} an/aus`
+                    : c.type === "setting" ? `${c.plugin}: ${c.setting} umschalten`
+                        : type.label;
+            }
+            saveCustomHotkey(c);
+            close();
+            redraw();
+            toast(existing ? "✓ Kürzel gespeichert" : "✓ Kürzel erstellt – jetzt Taste festlegen");
+        };
+
+        body.replaceChildren(h("div", { class: "xjm-dialog-inner" }, [
+            h("div", { class: "xjm-dialog-head" },
+                h("div", { class: "xjm-hk-icon big" }, icon("keyboard", 22)),
+                h("div", { class: "xjm-dialog-title" }, h("h2", {}, existing ? "Kürzel bearbeiten" : "Neues Tastenkürzel"), h("p", {}, type.hint)),
+                h("button", { class: "xjm-iconbtn", title: "Schließen", onclick: close }, icon("close", 18))),
+            h("div", { class: "xjm-typegrid" }, CUSTOM_TYPES.map(t =>
+                h("button", { class: "xjm-typebtn" + (c.type === t.type ? " sel" : ""), onclick: () => { c.type = t.type; draw(); } }, t.label))),
+            field("Name (optional)", h("input", { class: "xjm-input", value: c.label, placeholder: "z. B. Twitch-Link posten", onkeydown: stop, oninput: (e: any) => { c.label = e.target.value; } })),
+            fields,
+            h("div", { class: "xjm-row-actions end" },
+                h("button", { class: "xjm-btn ghost", onclick: close }, "Abbrechen"),
+                h("button", { class: "xjm-btn", onclick: save }, existing ? "Speichern" : "Erstellen"))
+        ]));
+    };
+    draw();
+    ov.append(h("div", { class: "xjm-dialog" }, body));
+    document.body.append(ov);
+}
+
 function pageHotkeys(redraw: () => void) {
     const binds = getBinds();
-    const actions = getActions().filter(a => !a.plugin || plugins[a.plugin]);
-    const custom = new Set(getCustomPlugins());
+    const actions = getActions().filter(a => a.custom || !a.plugin || plugins[a.plugin]);
+    const builtin = actions.filter(a => !a.custom);
+    const custom = actions.filter(a => a.custom);
     const hk = Settings.plugins.XJHotkeys as any;
     const hkOn = isPluginEnabled("XJHotkeys");
 
     const row = (a: any) => {
-        const pluginOn = !a.plugin || isPluginEnabled(a.plugin);
+        const pluginOn = !a.plugin || a.togglesPlugin || isPluginEnabled(a.plugin);
         const combo = binds[a.id];
-        return h("div", { class: "xjm-hk" + (combo ? " set" : "") },
-            h("div", { class: "xjm-hk-icon" }, icon(a.id.startsWith("toggle:") ? "plug" : "keyboard", 18)),
+        const ic = a.custom ? ({ plugin: "plug", setting: "gear", text: "code", link: "star", channel: "home", css: "brush" } as any)[a.custom.type] : "keyboard";
+        return h("div", { class: "xjm-hk" + (combo ? " set" : "") + (a.custom ? " custom" : "") },
+            h("div", { class: "xjm-hk-icon" }, icon(ic, 18)),
             h("div", { class: "xjm-opt-text" },
                 h("b", {}, a.label),
                 h("span", {}, a.description),
@@ -555,30 +638,32 @@ function pageHotkeys(redraw: () => void) {
             h("div", { class: "xjm-hk-side" },
                 h("button", { class: "xjm-key" + (combo ? "" : " empty"), "data-rec": a.id, title: "Klicken und neue Taste drücken (Entf = löschen, Esc = abbrechen)",
                     onclick: () => startRecording(a.id, redraw) }, combo ? formatCombo(combo) : "Taste festlegen"),
-                combo ? h("button", { class: "xjm-iconbtn", title: "Kürzel entfernen", onclick: () => { setBind(a.id, null); redraw(); } }, icon("close", 15)) : null,
-                a.id.startsWith("toggle:") ? h("button", { class: "xjm-iconbtn", title: "Aus der Liste entfernen", onclick: () => { removeCustomPlugin(a.plugin); redraw(); } }, icon("trash", 15)) : null));
+                combo && !a.custom ? h("button", { class: "xjm-iconbtn", title: "Kürzel entfernen", onclick: () => { setBind(a.id, null); redraw(); } }, icon("close", 15)) : null,
+                a.custom ? h("button", { class: "xjm-iconbtn", title: "Bearbeiten", onclick: () => openCustomEditor(a.custom, redraw) }, icon("gear", 15)) : null,
+                a.custom ? h("button", { class: "xjm-iconbtn", title: "Löschen", onclick: () => { if (confirm(`„${a.label}“ löschen?`)) { deleteCustomHotkey(a.id); redraw(); } } }, icon("trash", 15)) : null));
     };
 
-    const candidates = Object.values(plugins)
-        .filter((p: any) => !p.hidden && !p.required && canToggleLive(p.name) && !custom.has(p.name) && !["XJDesign", "XJTwitchLive", "XJStreamClock", "XJHotkeys", "XJMenu"].includes(p.name))
-        .map((p: any) => p.name).sort();
-    const sel = h("select", { class: "xjm-input" },
-        h("option", { value: "" }, "Plugin auswählen …"),
-        candidates.map(n => h("option", { value: n }, n))) as HTMLSelectElement;
-
     return [
-        pageHead("Tastenkürzel", "Plugins blitzschnell per Taste steuern – ohne Menü und ohne Neustart", "keyboard"),
+        pageHead("Tastenkürzel", "Plugins und eigene Aktionen blitzschnell per Taste", "keyboard",
+            h("button", { class: "xjm-btn", onclick: () => openCustomEditor(null, redraw) }, icon("plus", 16), "Eigenes Kürzel")),
         !hkOn ? h("div", { class: "xjm-restart" }, icon("keyboard", 18),
             h("div", {}, h("b", {}, "Tastenkürzel sind aus"), h("span", {}, "Das Plugin XJHotkeys ist deaktiviert.")),
             h("button", { class: "xjm-btn", onclick: () => { const p = plugins.XJHotkeys; if (p) { startPlugin(p); Settings.plugins.XJHotkeys.enabled = true; } redraw(); } }, "Einschalten")) : null,
         h("p", { class: "xjm-hint" }, "Klicke auf ein Kürzel und drücke die neue Tastenkombination. Entf löscht es, Esc bricht ab."),
-        h("div", { class: "xjm-hklist" }, actions.map(row)),
-        h("h3", { class: "xjm-section" }, "Plugin an/aus per Taste"),
-        h("div", { class: "xjm-addrow" }, sel,
-            h("button", { class: "xjm-btn", onclick: () => { if (sel.value) { addCustomPlugin(sel.value); redraw(); } } }, icon("plus", 16), "Hinzufügen")),
-        h("p", { class: "xjm-hint" }, "Hier erscheinen nur Plugins, die sich ohne Neustart umschalten lassen."),
+
+        h("h3", { class: "xjm-section" }, "Deine eigenen Kürzel"),
+        custom.length ? h("div", { class: "xjm-hklist" }, custom.map(row))
+            : h("button", { class: "xjm-emptyadd", onclick: () => openCustomEditor(null, redraw) },
+                icon("plus", 22),
+                h("b", {}, "Erstes eigenes Kürzel anlegen"),
+                h("span", {}, "Plugin an/aus, Einstellung umschalten, Text einfügen, Link oder Kanal öffnen, CSS an/aus")),
+
+        h("h3", { class: "xjm-section" }, "Fertige Kürzel"),
+        h("div", { class: "xjm-hklist" }, builtin.map(row)),
+
         h("h3", { class: "xjm-section" }, "Einstellungen"),
         h("div", { class: "xjm-list" },
+            optRow("Automatisch neu laden", "Wenn ein Plugin (z. B. ShowHiddenChannels) einen Neustart braucht, lädt Discord sich selbst neu", hk?.autoReload !== false, v => { hk.autoReload = v; }),
             optRow("Meldung beim Benutzen anzeigen", "Kurzer Hinweis unten, was das Kürzel gerade gemacht hat", hk?.showToasts !== false, v => { hk.showToasts = v; }))
     ];
 }
