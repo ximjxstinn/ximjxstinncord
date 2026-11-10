@@ -20,13 +20,20 @@ const edits = [
         replace: [
             ['title: "Vencord",', `title: "${NAME}",`],
             ['panelTitle: "Vencord Settings"', `panelTitle: "${NAME} Settings"`],
-            ['useTitle: () => "Vencord Settings"', `useTitle: () => "${NAME} Settings"`]
-        ]
+            ['useTitle: () => "Vencord Settings"', `useTitle: () => "${NAME} Settings"`],
+            // Eigenes Menü: die Einträge zeigen unsere Seiten statt der Vencord-Seiten
+            ["Component: VencordTab,", "Component: XJPages.main,"],
+            ["Component: PluginsTab,", "Component: XJPages.plugins,"],
+            ["Component: ThemesTab,", "Component: XJPages.themes,"],
+            ["Component: UpdaterTab,", "Component: XJPages.updater,"],
+            ["Component: BackupAndRestoreTab,", "Component: XJPages.backup,"]
+        ],
+        prepend: 'import { XJPages } from "../../userplugins/xjMenu/pages";\n'
     }
 ];
 
 let warnings = 0;
-for (const { file, replace } of edits) {
+for (const { file, replace, prepend } of edits) {
     const path = join(root, file);
     let src;
     try { src = readFileSync(path, "utf8"); } catch {
@@ -43,6 +50,7 @@ for (const { file, replace } of edits) {
         src = src.split(from).join(to);
         console.log(`✔ ${file}: ${from} → ${to}`);
     }
+    if (typeof prepend === "string" && !src.includes(prepend.trim())) src = prepend + src;
     writeFileSync(path, src);
 }
 // ---------------------------------------------------------------------------

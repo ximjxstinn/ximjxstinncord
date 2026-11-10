@@ -11,7 +11,7 @@ xImJxstinnCord basiert auf [Vencord](https://github.com/Vendicated/Vencord) (© 
 
 ## Was drin ist
 - Alle Vencord-Plugins (über 170), zum Beispiel ShowHiddenChannels, RoleColorEverywhere, MessageLogger und Translate
-- Vencords Menü in den Discord-Einstellungen: Plugins, Themes, Updater, Cloud, Backup & Restore
+- Ein **komplett eigenes Menü** in den Discord-Einstellungen (Übersicht, Plugins, Themes, Updates, Backup) im xImJxstinnCord-Design – nicht im Vencord-Stil (`userplugins/xjMenu/`)
 - Deine eigenen Plugins aus `userplugins/`:
   | Plugin | Funktion |
   |---|---|
