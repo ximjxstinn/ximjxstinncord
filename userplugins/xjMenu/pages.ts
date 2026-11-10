@@ -20,7 +20,7 @@ import gitHash from "~git-hash";
 import {
     autoReloadEnabled, canToggleLive, channelPath, CUSTOM_TYPES, CustomHotkey, deleteCustomHotkey, ensurePluginHotkey,
     formatCombo, getActions, getBinds, getPluginBind, getPluginHotkeys, newCustomId, pluginHotkeyId, recording,
-    removePluginHotkey, saveCustomHotkey, scheduleReload, setBind
+    isEffectivelyOn, removePluginHotkey, saveCustomHotkey, scheduleReload, setBind, setLiveState
 } from "../xjHotkeys/actions";
 import { CSS } from "./style";
 
@@ -129,6 +129,9 @@ function pageHead(title: string, sub: string, ic: string, ...actions: Kid[]) {
 // Plugins an/aus
 // ---------------------------------------------------------------------------
 function setEnabled(p: any, on: boolean) {
+    // Sofort-Schalter (z. B. ShowHiddenChannels): pausieren statt neu laden
+    const live = setLiveState(p.name, on);
+    if (live) { toast(live); return; }
     const st = Settings.plugins[p.name];
     const was = isPluginEnabled(p.name);
     if (on === was) return;
@@ -157,7 +160,7 @@ function setEnabled(p: any, on: boolean) {
 /** Plugin braucht Neustart: automatisch neu laden oder Hinweis anzeigen */
 function needsReload(name: string, on: boolean) {
     if (autoReloadEnabled()) scheduleReload(`${name} ${on ? "an" : "aus"}`);
-    else restartNeeded.add(name);
+    else { restartNeeded.add(name); toast(`${name} ${on ? "an" : "aus"} – wirkt beim nächsten Discord-Start`); }
 }
 
 // ---------------------------------------------------------------------------
@@ -238,10 +241,10 @@ function openSettings(p: any) {
             h("div", { class: "xjm-opt main" },
                 h("div", { class: "xjm-opt-text" }, h("b", {}, "Plugin aktiv"),
                     p.required ? h("span", {}, "Wird für xImJxstinnCord benötigt") : null),
-                toggle(isPluginEnabled(p.name), v => { setEnabled(p, v); draw(); }, !!p.required)),
+                toggle(isEffectivelyOn(p.name), v => { setEnabled(p, v); draw(); }, !!p.required)),
             p.required ? null : h("div", { class: "xjm-opt main" },
                 h("div", { class: "xjm-opt-text" }, h("b", {}, "Tastenkürzel"),
-                    h("span", {}, "Schaltet das Plugin per Taste an/aus" + (canToggleLive(p.name) ? "" : " – Discord lädt dabei kurz neu"))),
+                    h("span", {}, "Schaltet das Plugin per Taste an/aus" + (canToggleLive(p.name) ? " – sofort, ohne Neu-Laden" : " – wirkt beim nächsten Discord-Start"))),
                 h("div", { class: "xjm-hk-side" },
                     h("button", { class: "xjm-key" + (getPluginBind(p.name) ? "" : " empty"), "data-rec": pluginHotkeyId(p.name),
                         onclick: () => { ensurePluginHotkey(p.name); startRecording(pluginHotkeyId(p.name), draw); } },
@@ -264,7 +267,7 @@ function openSettings(p: any) {
 // ---------------------------------------------------------------------------
 function pageMain() {
     const all = Object.values(plugins).filter((p: any) => !p.hidden);
-    const active = all.filter((p: any) => isPluginEnabled(p.name)).length;
+    const active = all.filter((p: any) => isEffectivelyOn(p.name)).length;
     const themes = (Settings.enabledThemes?.length ?? 0) + (Settings.themeLinks?.length ?? 0);
     const action = (ic: string, label: string, fn: () => void) =>
         h("button", { class: "xjm-action", onclick: fn }, h("span", { class: "xjm-action-icon" }, icon(ic, 20)), label);
@@ -320,7 +323,7 @@ function pageCustomList() {
     const own = (p: any) => p.name.startsWith("XJ");
     let list = Object.values(plugins).filter((p: any) => !p.hidden) as any[];
     list = list.filter(p => {
-        const on = isPluginEnabled(p.name);
+        const on = isEffectivelyOn(p.name);
         switch (pluginState.filter) {
             case "on": if (!on) return false; break;
             case "off": if (on) return false; break;
@@ -335,7 +338,7 @@ function pageCustomList() {
 }
 
 function pluginCard(p: any) {
-    const on = isPluginEnabled(p.name);
+    const on = isEffectivelyOn(p.name);
     const st = Settings.plugins[p.name];
     const defs = p.settings?.def ?? p.options ?? {};
     const hasSettings = Object.entries(defs).some(([k, d]: [string, any]) => k !== "enabled" && !d.hidden);
@@ -370,7 +373,7 @@ function pagePlugins(redraw: () => void) {
         }
     });
     return [
-        pageHead("Plugins", `${Object.values(plugins).filter((p: any) => !p.hidden && isPluginEnabled(p.name)).length} von ${Object.values(plugins).filter((p: any) => !p.hidden).length} aktiv`, "plug"),
+        pageHead("Plugins", `${Object.values(plugins).filter((p: any) => !p.hidden && isEffectivelyOn(p.name)).length} von ${Object.values(plugins).filter((p: any) => !p.hidden).length} aktiv`, "plug"),
         restartBar(),
         h("div", { class: "xjm-search" }, icon("search", 18), search),
         h("div", { class: "xjm-chiprow" }, chips.map(([id, label]) =>
@@ -637,7 +640,7 @@ function pageHotkeys(redraw: () => void) {
     const pluginRow = (c: CustomHotkey) => {
         const name = c.plugin!;
         const p: any = plugins[name];
-        const on = isPluginEnabled(name);
+        const on = isEffectivelyOn(name);
         const combo = binds[c.id];
         return h("div", { class: "xjm-hk" + (combo ? " set" : "") },
             h("div", { class: "xjm-avatar", style: `--h:${hueOf(name)}` }, name[0]),
@@ -646,7 +649,7 @@ function pageHotkeys(redraw: () => void) {
                 h("span", {}, p?.description ?? ""),
                 h("div", { class: "xjm-hk-meta" },
                     h("span", { class: "xjm-tag" + (on ? " ok" : "") }, on ? "an" : "aus"),
-                    canToggleLive(name) ? null : h("span", { class: "xjm-tag warn" }, "lädt neu"))),
+                    canToggleLive(name) ? h("span", { class: "xjm-tag" }, "sofort") : h("span", { class: "xjm-tag warn" }, "Neustart"))),
             h("div", { class: "xjm-hk-side" },
                 toggle(on, v => { setEnabled(p, v); redraw(); }),
                 h("button", { class: "xjm-key" + (combo ? "" : " empty"), "data-rec": c.id, title: "Klicken und neue Taste drücken (Entf = löschen, Esc = abbrechen)",
@@ -702,10 +705,10 @@ function pageHotkeys(redraw: () => void) {
                 } },
                     h("div", { class: "xjm-avatar small", style: `--h:${hueOf(p.name)}` }, p.name[0]),
                     h("b", {}, p.name),
-                    canToggleLive(p.name) ? null : h("span", { class: "xjm-tag warn" }, "lädt neu"),
+                    canToggleLive(p.name) ? null : h("span", { class: "xjm-tag warn" }, "Neustart"),
                     h("span", { class: "xjm-suggest-plus" }, icon("plus", 16))))) : null),
 
-        h("p", { class: "xjm-hint" }, "Kürzel drücken = Plugin an/aus. Plugins mit „lädt neu“ brauchen einen Neustart – Discord lädt dann automatisch kurz neu. Tipp: Das Kürzel kannst du auch direkt im ⚙-Dialog jedes Plugins festlegen."),
+        h("p", { class: "xjm-hint" }, "Kürzel drücken = Plugin sofort an/aus – ohne Neu-Laden. Nur Plugins mit „Neustart“ wirken erst beim nächsten Discord-Start. Tipp: Das Kürzel kannst du auch direkt im ⚙-Dialog jedes Plugins festlegen."),
         pluginKeys.length ? h("div", { class: "xjm-hklist" }, pluginKeys.map(pluginRow))
             : h("div", { class: "xjm-empty" }, "Noch keine Plugin-Kürzel. Such oben ein Plugin und füg es hinzu."),
 
@@ -715,7 +718,7 @@ function pageHotkeys(redraw: () => void) {
 
         h("h3", { class: "xjm-section" }, "Einstellungen"),
         h("div", { class: "xjm-list" },
-            optRow("Automatisch neu laden", "Wenn ein Plugin einen Neustart braucht, lädt Discord sich selbst neu", hk?.autoReload !== false, v => { hk.autoReload = v; }),
+            optRow("Automatisch neu laden", "Nur für Plugins, die nicht sofort umschalten können: Discord lädt sich dann selbst neu", hk?.autoReload === true, v => { hk.autoReload = v; }),
             optRow("Meldung beim Benutzen anzeigen", "Kurzer Hinweis unten, z. B. „ShowHiddenChannels aus“", hk?.showToasts !== false, v => { hk.showToasts = v; }))
     ];
 }

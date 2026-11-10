@@ -9,7 +9,10 @@ import {
 } from "@api/PluginManager";
 import { Settings } from "@api/Settings";
 import { insertTextIntoChatInputBox } from "@utils/discord";
-import { NavigationRouter } from "@webpack/common";
+import {
+    ChannelStore, GuildChannelStore, NavigationRouter, PermissionsBits, PermissionStore,
+    SelectedChannelStore, SelectedGuildStore
+} from "@webpack/common";
 
 import { setStyle } from "../_xjShared";
 
@@ -73,7 +76,7 @@ const store = () => Settings.plugins.XJHotkeys as any;
 // ---------------------------------------------------------------------------
 // Automatisch neu laden (für Plugins, die einen Neustart brauchen)
 // ---------------------------------------------------------------------------
-export const autoReloadEnabled = () => store()?.autoReload !== false;
+export const autoReloadEnabled = () => store()?.autoReload === true;
 
 let reloadTimer: ReturnType<typeof setTimeout> | undefined;
 export function scheduleReload(reason?: string) {
@@ -84,11 +87,118 @@ export function scheduleReload(reason?: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Sofort-Schalter für Plugins, die eigentlich einen Neustart bräuchten
+// (das Plugin bleibt geladen, wird aber pausiert – ohne Neu-Laden)
+// ---------------------------------------------------------------------------
+interface LiveSwitch { pause(): void; resume(): void; }
+
+function readPaused(): Record<string, boolean> {
+    try { return JSON.parse(store()?.paused || "{}") ?? {}; } catch { return {}; }
+}
+function writePaused(map: Record<string, boolean>) {
+    store().paused = JSON.stringify(map);
+}
+export const isPaused = (name: string) => !!readPaused()[name];
+export const hasLiveSwitch = (name: string) => name in LIVE;
+/** Ist das Plugin aus Sicht des Nutzers an? (aktiviert und nicht pausiert) */
+export const isEffectivelyOn = (name: string) => isPluginEnabled(name) && !isPaused(name);
+
+function refreshChannelStores() {
+    for (const st of [GuildChannelStore, ChannelStore, PermissionStore] as any[]) {
+        try { st?.emitChange?.(); } catch { }
+    }
+}
+
+// --- ShowHiddenChannels ---------------------------------------------------
+const SHC_HIDE_CLASS = "xj-shc-paused-hide";
+let shcObserver: MutationObserver | null = null;
+let shcPending = false;
+
+function shcCanView(id: string) {
+    try {
+        const ch = ChannelStore.getChannel(id);
+        if (!ch || !ch.guild_id) return true;
+        return PermissionStore.can(PermissionsBits.VIEW_CHANNEL, ch);
+    } catch { return true; }
+}
+
+function shcMarkRows() {
+    for (const el of document.querySelectorAll<HTMLElement>('[data-list-item-id^="channels___"]')) {
+        const row = (el.closest("li") ?? el) as HTMLElement;
+        row.classList.toggle(SHC_HIDE_CLASS, !shcCanView(el.getAttribute("data-list-item-id")!.slice(11)));
+    }
+}
+
+const shcLive: LiveSwitch = {
+    pause() {
+        const p = plugins.ShowHiddenChannels as any;
+        if (!p) return;
+        if (!p.__xjOriginal) p.__xjOriginal = p.isHiddenChannel;
+        // Alle Stellen, an denen ShowHiddenChannels eingreift, fragen diese Funktion – „nein“ = Discord verhält sich normal
+        p.isHiddenChannel = () => false;
+        setStyle("xj-shc-paused", `.${SHC_HIDE_CLASS} { display: none !important; }`);
+        shcMarkRows();
+        if (!shcObserver) {
+            shcObserver = new MutationObserver(() => {
+                if (shcPending) return;
+                shcPending = true;
+                setTimeout(() => { shcPending = false; shcMarkRows(); }, 40);
+            });
+            shcObserver.observe(document.body, { childList: true, subtree: true });
+        }
+        refreshChannelStores();
+        // Falls gerade ein gesperrter Kanal offen ist: zurück zum Server
+        try {
+            const cid = SelectedChannelStore.getChannelId();
+            const gid = SelectedGuildStore.getGuildId();
+            if (cid && gid && !shcCanView(cid)) NavigationRouter.transitionTo(`/channels/${gid}`);
+        } catch { }
+    },
+    resume() {
+        const p = plugins.ShowHiddenChannels as any;
+        if (p?.__xjOriginal) p.isHiddenChannel = p.__xjOriginal;
+        shcObserver?.disconnect();
+        shcObserver = null;
+        document.querySelectorAll("." + SHC_HIDE_CLASS).forEach(e => e.classList.remove(SHC_HIDE_CLASS));
+        setStyle("xj-shc-paused", null);
+        refreshChannelStores();
+    }
+};
+
+const LIVE: Record<string, LiveSwitch> = {
+    ShowHiddenChannels: shcLive
+};
+
+/** Beim Start: pausierte Plugins wieder pausieren */
+export function applyPausedPlugins() {
+    for (const [name, paused] of Object.entries(readPaused())) {
+        if (paused && LIVE[name] && isPluginEnabled(name)) LIVE[name].pause();
+    }
+}
+export function releasePausedPlugins() {
+    for (const [name, paused] of Object.entries(readPaused())) if (paused && LIVE[name]) LIVE[name].resume();
+}
+
+/**
+ * Plugin an/aus ohne Neu-Laden, wenn irgendwie möglich.
+ * Gibt eine Meldung zurück, oder null, wenn der normale Weg genommen werden soll.
+ */
+export function setLiveState(name: string, on: boolean): string | null {
+    if (!LIVE[name] || !isPluginEnabled(name)) return null;
+    const map = readPaused();
+    if (on) { delete map[name]; writePaused(map); LIVE[name].resume(); }
+    else { map[name] = true; writePaused(map); LIVE[name].pause(); }
+    return `${name} ${on ? "an" : "aus"}`;
+}
+
+// ---------------------------------------------------------------------------
 // Plugin an/aus
 // ---------------------------------------------------------------------------
 export function canToggleLive(name: string) {
     const p = plugins[name];
-    return !!p && !p.required && !pluginRequiresRestart(p);
+    if (!p || p.required) return false;
+    if (LIVE[name] && isPluginEnabled(name)) return true;
+    return !pluginRequiresRestart(p);
 }
 
 /** Schaltet ein Plugin um – live, oder mit automatischem Neu-Laden, wenn es nicht anders geht. */
@@ -97,12 +207,16 @@ export function togglePlugin(name: string): string {
     if (!p) return `${name} gibt es nicht`;
     if (p.required) return `${name} kann nicht ausgeschaltet werden`;
     const st = Settings.plugins[name];
-    const on = isPluginEnabled(name);
 
+    // Sofort-Schalter (z. B. ShowHiddenChannels): pausieren statt neu laden
+    const live = setLiveState(name, !isEffectivelyOn(name));
+    if (live) return live;
+
+    const on = isPluginEnabled(name);
     if (!canToggleLive(name)) {
         st.enabled = !on;
         if (autoReloadEnabled()) { scheduleReload(`${name} ${on ? "aus" : "an"}`); return ""; }
-        return `${name} ${on ? "aus" : "an"} – wirkt nach dem Neu-Laden (Strg + R)`;
+        return `${name} ${on ? "aus" : "an"} – wirkt beim nächsten Discord-Start`;
     }
     if (!on) {
         const { restartNeeded, failures } = startDependenciesRecursive(p);
